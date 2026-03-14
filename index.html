@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Web GTA Map</title>
+
+<link rel="manifest" href="manifest.json">
+
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+
+<style>
+
+body{
+margin:0;
+overflow:hidden;
+font-family:sans-serif;
+}
+
+#map{
+width:100vw;
+height:100vh;
+}
+
+/* HUD */
+
+#hud{
+position:absolute;
+top:15px;
+left:50%;
+transform:translateX(-50%);
+z-index:5;
+}
+
+#hud input{
+padding:10px;
+border-radius:8px;
+border:none;
+width:250px;
+}
+
+/* buttons */
+
+#gps,#fullscreen,#install{
+position:absolute;
+right:15px;
+z-index:10;
+padding:10px;
+border:none;
+border-radius:8px;
+background:black;
+color:white;
+}
+
+#gps{ top:15px }
+#fullscreen{ top:65px }
+#install{ top:115px }
+
+/* player */
+
+.player{
+width:22px;
+height:22px;
+background:red;
+border-radius:50%;
+border:3px solid white;
+}
+
+/* joystick */
+
+#joyBase{
+position:absolute;
+bottom:35px;
+left:30px;
+width:140px;
+height:140px;
+background:rgba(0,0,0,0.4);
+border-radius:50%;
+z-index:10;
+}
+
+#joyStick{
+position:absolute;
+width:60px;
+height:60px;
+background:white;
+border-radius:50%;
+top:40px;
+left:40px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="hud">
+<input id="search" placeholder="Search location">
+</div>
+
+<button id="gps">GPS</button>
+<button id="fullscreen">Fullscreen</button>
+<button id="install">Install</button>
+
+<div id="map"></div>
+
+<div id="joyBase">
+<div id="joyStick"></div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+<script>
+
+/* MAP */
+
+const map=new maplibregl.Map({
+container:'map',
+style:'https://demotiles.maplibre.org/style.json',
+center:[78.96,22.59],
+zoom:5,
+pitch:60,
+bearing:0,
+antialias:true
+});
+
+map.addControl(new maplibregl.NavigationControl());
+
+/* PLAYER */
+
+let playerPos=[78.96,22.59];
+
+const el=document.createElement("div");
+el.className="player";
+
+const player=new maplibregl.Marker(el)
+.setLngLat(playerPos)
+.addTo(map);
+
+function updatePlayer(){
+player.setLngLat(playerPos);
+map.setCenter(playerPos);
+}
+
+/* WASD */
+
+document.addEventListener("keydown",(e)=>{
+
+const speed=0.001;
+
+if(e.key==="w") playerPos[1]+=speed;
+if(e.key==="s") playerPos[1]-=speed;
+if(e.key==="a") playerPos[0]-=speed;
+if(e.key==="d") playerPos[0]+=speed;
+
+updatePlayer();
+
+});
+
+/* JOYSTICK */
+
+const stick=document.getElementById("joyStick");
+const base=document.getElementById("joyBase");
+
+let dragging=false;
+
+base.addEventListener("touchstart",()=>dragging=true);
+
+document.addEventListener("touchend",()=>{
+dragging=false;
+stick.style.transform="translate(0,0)";
+});
+
+document.addEventListener("touchmove",(e)=>{
+
+if(!dragging) return;
+
+let rect=base.getBoundingClientRect();
+
+let x=e.touches[0].clientX-rect.left-70;
+let y=e.touches[0].clientY-rect.top-70;
+
+let dist=Math.sqrt(x*x+y*y);
+let max=40;
+
+if(dist>max){
+x=x*max/dist;
+y=y*max/dist;
+}
+
+stick.style.transform=`translate(${x}px,${y}px)`;
+
+playerPos[0]+=x*0.00005;
+playerPos[1]-=y*0.00005;
+
+updatePlayer();
+
+});
+
+/* SEARCH */
+
+document.getElementById("search").addEventListener("keypress",async function(e){
+
+if(e.key==="Enter"){
+
+let q=this.value;
+
+let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+
+let data=await res.json();
+
+if(data.length){
+
+playerPos=[parseFloat(data[0].lon),parseFloat(data[0].lat)];
+
+map.flyTo({center:playerPos,zoom:16});
+
+updatePlayer();
+
+}
+
+}
+
+});
+
+/* GPS */
+
+document.getElementById("gps").onclick=()=>{
+
+navigator.geolocation.getCurrentPosition(pos=>{
+
+playerPos=[pos.coords.longitude,pos.coords.latitude];
+
+map.flyTo({center:playerPos,zoom:16});
+
+updatePlayer();
+
+});
+
+};
+
+/* FULLSCREEN */
+
+document.getElementById("fullscreen").onclick=()=>{
+
+if(!document.fullscreenElement){
+document.documentElement.requestFullscreen();
+}else{
+document.exitFullscreen();
+}
+
+};
+
+/* INSTALL PWA */
+
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt',(e)=>{
+
+e.preventDefault();
+deferredPrompt=e;
+
+});
+
+document.getElementById("install").onclick=()=>{
+
+if(deferredPrompt){
+
+deferredPrompt.prompt();
+deferredPrompt.userChoice.then(()=>{
+
+deferredPrompt=null;
+
+});
+
+}
+
+};
+
+/* SERVICE WORKER */
+
+if('serviceWorker' in navigator){
+navigator.serviceWorker.register("sw.js");
+}
+
+</script>
+
+</body>
+</html>

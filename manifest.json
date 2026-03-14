@@ -1,0 +1,37 @@
+{
+  "name": "OPEN WORLD — Browser Edition",
+  "short_name": "OPEN WORLD",
+  "description": "A GTA-style open world map game in your browser",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape-primary",
+  "background_color": "#050a05",
+  "theme_color": "#050a05",
+  "scope": "./",
+  "lang": "en",
+  "categories": ["games", "navigation"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23050a05'/%3E%3Ccircle cx='96' cy='96' r='60' fill='none' stroke='%2339ff6a' stroke-width='4'/%3E%3Ccircle cx='96' cy='96' r='8' fill='%2339ff6a'/%3E%3Cpath d='M96 36 L96 60 M96 132 L96 156 M36 96 L60 96 M132 96 L156 96' stroke='%2339ff6a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%23050a05'/%3E%3Ccircle cx='256' cy='256' r='160' fill='none' stroke='%2339ff6a' stroke-width='10'/%3E%3Ccircle cx='256' cy='256' r='22' fill='%2339ff6a'/%3E%3Cpath d='M256 96 L256 160 M256 352 L256 416 M96 256 L160 256 M352 256 L416 256' stroke='%2339ff6a' stroke-width='8' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "GPS Location",
+      "short_name": "GPS",
+      "description": "Jump to current location",
+      "url": "./index.html?gps=1"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

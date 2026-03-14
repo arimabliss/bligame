@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#050a05"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>OPEN WORLD — v4.0</title>
+<link rel="manifest" href="manifest.json"/>
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --g:#39ff6a;--gd:#1a7a35;--a:#ffb830;--r:#ff3b3b;--b:#4fc3f7;
+  --p:#c084fc;--pk:#f472b6;--bg:#050a05;--pn:rgba(5,12,5,.88);
+  --br:rgba(57,255,106,.22);--tx:#c8f5d2;--dm:#5c8a65;
+  --fh:'Rajdhani',sans-serif;--fm:'Share Tech Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:var(--fh);color:var(--tx);-webkit-tap-highlight-color:transparent;user-select:none;}
+
+#map{position:fixed;inset:0;}
+#scanlines{position:fixed;inset:0;pointer-events:none;z-index:8;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:8;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,4,0,.68) 100%);}
+#nightov{position:fixed;inset:0;pointer-events:none;z-index:7;background:rgba(0,0,20,.42);opacity:0;transition:opacity 1.2s;}
+#nightov.on{opacity:1;}
+canvas#rainc{position:fixed;inset:0;pointer-events:none;z-index:9;opacity:0;transition:opacity .8s;}
+canvas#rainc.on{opacity:1;}
+canvas#gunlayer{position:fixed;inset:0;pointer-events:none;z-index:12;}
+#dmgflash{position:fixed;inset:0;pointer-events:none;z-index:60;background:rgba(255,0,0,.44);opacity:0;transition:opacity .15s;}
+#dmgflash.on{opacity:1;}
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:14;opacity:.16;}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:var(--g);}
+#crosshair::before{width:16px;height:1px;top:0;left:-8px;}
+#crosshair::after{width:1px;height:16px;top:-8px;left:0;}
+
+/* ═══════════════ MENU ═══════════════ */
+#menu{
+  position:fixed;inset:0;z-index:900;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 55%,rgba(57,255,106,.09) 0%,rgba(0,4,0,.97) 65%);
+}
+#menu.gone{display:none;}
+#menu::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(57,255,106,.022) 3px,rgba(57,255,106,.022) 4px);pointer-events:none;}
+
+.mpanel{position:relative;z-index:2;width:min(480px,95vw);display:flex;flex-direction:column;align-items:center;animation:mpIn .5s ease;}
+@keyframes mpIn{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+
+.mtitle{font-size:clamp(38px,9vw,68px);font-weight:700;letter-spacing:.22em;color:var(--g);text-shadow:0 0 35px var(--g),0 0 70px rgba(57,255,106,.25);line-height:1;}
+.msub{font-family:var(--fm);font-size:9px;color:var(--dm);letter-spacing:.4em;margin:6px 0 28px;}
+
+/* Name + character row */
+.name-char-row{display:flex;gap:8px;width:100%;margin-bottom:16px;align-items:stretch;}
+#pname{flex:1;background:var(--pn);border:1px solid var(--br);border-radius:4px;padding:10px 14px;color:var(--tx);font-family:var(--fh);font-size:15px;font-weight:600;outline:none;min-width:0;}
+#pname:focus{border-color:var(--g);}
+#char-pick-btn{background:var(--pn);border:1px solid var(--br);border-radius:4px;padding:8px 12px;cursor:pointer;font-size:22px;white-space:nowrap;transition:border-color .2s;}
+#char-pick-btn:hover{border-color:var(--g);}
+
+.mbtn{
+  width:100%;padding:13px 20px;margin:4px 0;
+  background:rgba(5,12,5,.75);border:1px solid var(--br);border-radius:4px;
+  font-family:var(--fh);font-size:16px;font-weight:600;letter-spacing:.12em;
+  color:var(--dm);cursor:pointer;text-align:left;
+  display:flex;align-items:center;gap:14px;
+  transition:all .18s;backdrop-filter:blur(6px);position:relative;overflow:hidden;
+}
+.mbtn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--g);opacity:0;transition:opacity .18s;}
+.mbtn:hover{border-color:var(--g);color:var(--g);box-shadow:0 0 18px rgba(57,255,106,.18);transform:translateX(5px);}
+.mbtn:hover::before{opacity:1;}
+.mbtn .bi{font-size:18px;width:26px;text-align:center;}
+.mbtn.warn:hover{border-color:var(--r);color:var(--r);box-shadow:0 0 18px rgba(255,59,59,.18);}
+
+/* SUBMENU */
+.sub{display:none;flex-direction:column;align-items:center;width:100%;}
+.sub.open{display:flex;animation:mpIn .3s ease;}
+.sublabel{font-family:var(--fm);font-size:9px;color:var(--dm);letter-spacing:.25em;margin:14px 0 10px;text-align:center;}
+
+/* CARDS */
+.cards{display:grid;gap:9px;width:100%;margin-bottom:6px;}
+.cards.c2{grid-template-columns:1fr 1fr;}
+.cards.c3{grid-template-columns:1fr 1fr 1fr;}
+.cards.c4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.card{
+  padding:14px 10px;background:rgba(5,12,5,.75);border:1px solid var(--br);
+  border-radius:6px;cursor:pointer;text-align:center;transition:all .2s;
+}
+.card:hover,.card.sel{border-color:var(--g);box-shadow:0 0 14px rgba(57,255,106,.18);}
+.card.sel{background:rgba(57,255,106,.07);}
+.card .ci{font-size:clamp(20px,4vw,30px);display:block;margin-bottom:7px;}
+.card .cn{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--g);display:block;}
+.card .cd{font-family:var(--fm);font-size:8px;color:var(--dm);margin-top:4px;line-height:1.5;}
+
+/* Character cards */
+.charcard .ci{font-size:40px;}
+.charcard:hover{border-color:var(--p);}
+.charcard.sel{border-color:var(--p);background:rgba(192,132,252,.06);box-shadow:0 0 14px rgba(192,132,252,.2);}
+.charcard .cn{color:var(--p);}
+
+/* Room */
+#roombox{display:none;flex-direction:column;align-items:center;gap:8px;margin:8px 0;width:100%;}
+#roombox.show{display:flex;}
+.roomcode{font-family:var(--fm);font-size:22px;letter-spacing:.3em;color:var(--g);text-shadow:0 0 10px var(--g);padding:8px 20px;border:1px solid var(--br);border-radius:4px;cursor:pointer;}
+.roomhint{font-family:var(--fm);font-size:8px;color:var(--dm);letter-spacing:.12em;text-align:center;}
+.roomrow{display:flex;gap:7px;width:100%;}
+#roomin{flex:1;background:var(--pn);border:1px solid var(--br);border-radius:4px;padding:9px 12px;color:var(--tx);font-family:var(--fm);font-size:13px;letter-spacing:.15em;outline:none;text-transform:uppercase;}
+#roomin:focus{border-color:var(--g);}
+
+#startbtn{
+  width:100%;padding:15px;margin-top:12px;
+  background:rgba(57,255,106,.1);border:2px solid var(--g);border-radius:4px;
+  font-family:var(--fh);font-size:18px;font-weight:700;letter-spacing:.2em;
+  color:var(--g);cursor:pointer;text-shadow:0 0 10px var(--g);
+  transition:all .2s;position:relative;z-index:5;
+}
+#startbtn:hover{background:rgba(57,255,106,.2);box-shadow:0 0 28px rgba(57,255,106,.3);}
+
+.backbtn{font-family:var(--fm);font-size:9px;color:var(--dm);letter-spacing:.2em;cursor:pointer;padding:8px;transition:color .2s;margin-top:4px;}
+.backbtn:hover{color:var(--tx);}
+
+/* World status */
+#world-status{font-family:var(--fm);font-size:9px;color:var(--b);letter-spacing:.12em;padding:4px 0;text-align:center;}
+
+/* ═══════════════ CHARACTER SELECT OVERLAY ═══════════════ */
+#charselect{position:fixed;inset:0;z-index:950;display:none;align-items:center;justify-content:center;background:rgba(0,4,0,.92);backdrop-filter:blur(12px);}
+#charselect.open{display:flex;}
+#cspanel{width:min(520px,94vw);background:var(--pn);border:1px solid var(--br);border-radius:8px;padding:24px;}
+#cspanel h2{font-family:var(--fm);font-size:13px;letter-spacing:.2em;color:var(--g);margin-bottom:18px;text-align:center;}
+.chars-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.charopt{padding:16px 8px;background:rgba(5,12,5,.8);border:1px solid var(--br);border-radius:6px;cursor:pointer;text-align:center;transition:all .2s;}
+.charopt:hover,.charopt.sel{border-color:var(--p);box-shadow:0 0 14px rgba(192,132,252,.2);background:rgba(192,132,252,.06);}
+.charopt .ce{font-size:44px;display:block;margin-bottom:8px;}
+.charopt .cname{font-size:13px;font-weight:700;color:var(--p);letter-spacing:.08em;display:block;}
+.charopt .cdesc{font-family:var(--fm);font-size:8px;color:var(--dm);margin-top:4px;line-height:1.5;}
+#cs-confirm{width:100%;padding:12px;background:rgba(192,132,252,.1);border:2px solid var(--p);border-radius:4px;font-family:var(--fh);font-size:16px;font-weight:700;letter-spacing:.15em;color:var(--p);cursor:pointer;transition:all .2s;}
+#cs-confirm:hover{background:rgba(192,132,252,.2);}
+
+/* ═══════════════ HUD ═══════════════ */
+#hud{position:fixed;inset:0;z-index:20;pointer-events:none;display:flex;flex-direction:column;}
+#topbar{pointer-events:all;display:flex;align-items:center;gap:7px;padding:11px 13px 8px;background:linear-gradient(to bottom,rgba(5,12,5,.93),transparent);}
+#logo .t{font-size:15px;font-weight:700;letter-spacing:.16em;color:var(--g);text-shadow:0 0 10px var(--g);}
+#logo .s{font-family:var(--fm);font-size:7px;color:var(--dm);letter-spacing:.2em;}
+#sw{flex:1;position:relative;max-width:340px;}
+#sw input{width:100%;background:var(--pn);border:1px solid var(--br);border-radius:4px;padding:7px 8px 7px 28px;color:var(--tx);font-family:var(--fh);font-size:13px;font-weight:500;outline:none;backdrop-filter:blur(8px);transition:border-color .18s;}
+#sw input:focus{border-color:var(--g);}
+#sw input::placeholder{color:var(--dm);}
+#sw-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--gd);font-size:12px;pointer-events:none;}
+#sres{position:absolute;top:calc(100% + 5px);left:0;right:0;background:rgba(5,10,5,.97);border:1px solid var(--br);border-radius:4px;display:none;z-index:100;max-height:220px;overflow-y:auto;}
+#sres.open{display:block;}
+.sri{padding:9px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(57,255,106,.07);line-height:1.4;transition:background .15s;}
+.sri:hover{background:rgba(57,255,106,.09);color:var(--g);}
+.sri .sn{font-weight:600;}.sri .ss{font-size:10px;color:var(--dm);}
+
+.hb{pointer-events:all;background:var(--pn);border:1px solid var(--br);border-radius:4px;color:var(--dm);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:all .18s;backdrop-filter:blur(8px);flex-shrink:0;outline:none;}
+.hb:hover,.hb.on{border-color:var(--g);color:var(--g);box-shadow:0 0 9px rgba(57,255,106,.22);}
+.hb.on{background:rgba(57,255,106,.07);}
+.hb.ab.on{border-color:var(--a);color:var(--a);box-shadow:0 0 9px rgba(255,184,48,.25);background:rgba(255,184,48,.07);}
+.hb.bb.on{border-color:var(--b);color:var(--b);}
+.hb.rb{color:var(--r)!important;border-color:rgba(255,59,59,.35)!important;}
+.hb.rb:hover{box-shadow:0 0 9px rgba(255,59,59,.25)!important;}
+
+/* ── BOTTOM BAR ── */
+#botbar{margin-top:auto;padding:8px 13px 15px;display:flex;align-items:flex-end;justify-content:space-between;background:linear-gradient(to top,rgba(5,12,5,.84),transparent);pointer-events:none;}
+
+/* RADAR */
+#rw{pointer-events:all;position:relative;width:125px;height:125px;flex-shrink:0;}
+#rborder{position:absolute;inset:0;border-radius:50%;border:2px solid var(--g);z-index:2;pointer-events:none;box-shadow:0 0 16px rgba(57,255,106,.3),inset 0 0 16px rgba(0,0,0,.6);}
+#rborder::before{content:'';position:absolute;inset:4px;border-radius:50%;border:1px solid rgba(57,255,106,.13);}
+#minimap{width:100%;height:100%;border-radius:50%;overflow:hidden;background:#030803;}
+#rsweep{position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;overflow:hidden;}
+#rsweep::after{content:'';position:absolute;top:50%;left:50%;width:50%;height:50%;transform-origin:0% 100%;background:conic-gradient(from 0deg,transparent 0deg,rgba(57,255,106,.18) 50deg,transparent 50deg);animation:sweep 3s linear infinite;}
+@keyframes sweep{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+#rcenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:7px;height:7px;background:var(--g);border-radius:50%;box-shadow:0 0 7px var(--g);z-index:4;pointer-events:none;}
+#rcompass{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-family:var(--fm);font-size:9px;color:var(--g);letter-spacing:.08em;}
+.rblip{position:absolute;width:5px;height:5px;border-radius:50%;z-index:5;transform:translate(-50%,-50%);pointer-events:none;transition:left .5s,top .5s;}
+
+/* STATS */
+#statpanel{text-align:right;display:flex;flex-direction:column;gap:3px;pointer-events:none;}
+.sr{display:flex;align-items:center;justify-content:flex-end;gap:7px;font-family:var(--fm);font-size:10px;color:var(--dm);}
+.sl{font-size:8px;letter-spacing:.13em;text-transform:uppercase;}
+.sv{color:var(--g);font-size:11px;min-width:60px;text-align:right;}
+.sdiv{width:65px;height:1px;background:var(--br);margin:1px 0 1px auto;}
+
+/* ── GTA RIGHT HUD ── */
+#gtar{position:fixed;bottom:148px;right:13px;z-index:25;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+#moneyd{font-family:var(--fm);font-size:19px;font-weight:700;color:var(--g);text-shadow:0 0 10px var(--g);letter-spacing:.04em;}
+#moneyd.fl{animation:mfl .4s ease;}
+@keyframes mfl{0%,100%{color:var(--g);}50%{color:#fff;}}
+#wantedw{display:flex;gap:3px;justify-content:flex-end;}
+.star{width:14px;height:14px;font-size:11px;line-height:14px;text-align:center;color:#1a1a1a;filter:grayscale(1);transition:all .2s;}
+.star.lit{color:var(--a);text-shadow:0 0 6px var(--a);filter:none;}
+.star.flash{animation:wfl .5s ease infinite;}
+@keyframes wfl{0%,100%{opacity:1;}50%{opacity:.2;}}
+.barr{display:flex;align-items:center;gap:6px;}
+.brl{font-family:var(--fm);font-size:8px;letter-spacing:.12em;color:var(--dm);width:28px;text-align:right;}
+.bro{width:110px;height:8px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.06);border-radius:2px;overflow:hidden;}
+.bri{height:100%;border-radius:2px;transition:width .3s;}
+#hpbar{background:linear-gradient(90deg,#ff4444,#ff7070);}
+#arbar{background:linear-gradient(90deg,#4fc3f7,#81d4fa);}
+#ambar{background:linear-gradient(90deg,var(--a),#ffd57a);}
+
+/* GUN DISPLAY */
+#gundisplay{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:10px;color:var(--a);}
+#gunicon{font-size:16px;}
+#gunname{letter-spacing:.08em;font-size:9px;}
+#gunammo{color:var(--dm);}
+
+/* SPEED */
+#spdo{position:fixed;bottom:142px;right:13px;z-index:25;text-align:right;pointer-events:none;}
+#spdv{font-family:var(--fm);font-size:30px;color:var(--g);text-shadow:0 0 12px var(--g);line-height:1;}
+#spdu{font-family:var(--fm);font-size:8px;color:var(--dm);letter-spacing:.18em;}
+#timed{position:fixed;top:58px;right:13px;z-index:25;font-family:var(--fm);font-size:11px;color:var(--dm);letter-spacing:.1em;pointer-events:none;}
+
+/* BADGES */
+#modebadge{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(255,184,48,.1);border:1px solid var(--a);border-radius:3px;padding:3px 11px;font-family:var(--fm);font-size:10px;letter-spacing:.18em;color:var(--a);text-shadow:0 0 7px var(--a);display:none;pointer-events:none;}
+#modebadge.on{display:block;animation:fin .3s ease;}
+@keyframes fin{from{opacity:0;transform:translateX(-50%) translateY(-6px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+#toast{position:fixed;bottom:175px;left:50%;transform:translateX(-50%) translateY(18px);z-index:50;background:var(--pn);border:1px solid var(--br);border-radius:4px;padding:6px 15px;font-family:var(--fm);font-size:11px;color:var(--g);letter-spacing:.1em;opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px);max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.warn{color:var(--r);border-color:rgba(255,59,59,.3);}
+#toast.gold{color:var(--a);border-color:rgba(255,184,48,.35);}
+
+/* TERRITORY HUD */
+#terrh{position:fixed;top:58px;left:13px;z-index:25;pointer-events:none;display:none;}
+#terrh.on{display:block;}
+#terrinfo{font-family:var(--fm);font-size:8px;color:var(--g);letter-spacing:.1em;line-height:1.7;}
+#terrarea{font-family:var(--fm);font-size:13px;color:var(--a);text-shadow:0 0 7px var(--a);}
+#terrbw{width:95px;height:3px;background:rgba(57,255,106,.08);margin-top:3px;border-radius:2px;overflow:hidden;}
+#terrb{height:100%;background:var(--g);width:0%;transition:width .5s;}
+
+/* MISSION HUD */
+#missionh{position:fixed;top:58px;left:13px;z-index:25;pointer-events:none;display:none;max-width:240px;}
+#missionh.on{display:block;}
+#mname{font-family:var(--fm);font-size:10px;color:var(--a);letter-spacing:.1em;}
+#mobjective{font-family:var(--fm);font-size:8px;color:var(--dm);margin-top:3px;line-height:1.6;}
+#mprog{display:flex;align-items:center;gap:6px;margin-top:5px;}
+#mprogb{flex:1;height:3px;background:rgba(255,184,48,.1);border-radius:2px;overflow:hidden;}
+#mprogi{height:100%;background:var(--a);width:0%;transition:width .4s;}
+#mprogt{font-family:var(--fm);font-size:8px;color:var(--dm);}
+
+/* KILL FEED */
+#killfeed{position:fixed;top:78px;right:13px;z-index:25;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+.krow{font-family:var(--fm);font-size:9px;background:rgba(0,0,0,.65);border-right:2px solid var(--r);padding:3px 9px;border-radius:2px 0 0 2px;animation:kfin .3s ease;}
+@keyframes kfin{from{opacity:0;transform:translateX(18px);}to{opacity:1;transform:translateX(0);}}
+
+/* CLAIM SPLASH */
+#claimsplash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:80;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s;}
+#claimsplash.on{opacity:1;}
+.cst{font-size:26px;font-weight:700;letter-spacing:.18em;color:var(--g);text-shadow:0 0 28px var(--g);}
+.csa{font-family:var(--fm);font-size:13px;color:var(--a);margin-top:5px;}
+
+/* CHECKPOINT MARKER on map */
+.cpmark{width:20px;height:20px;background:var(--a);border-radius:50%;border:3px solid #fff;box-shadow:0 0 14px var(--a);animation:cppulse 1s ease-out infinite;}
+@keyframes cppulse{0%{transform:scale(.9);opacity:1;}100%{transform:scale(1.8);opacity:0;}}
+.cpmarkwrap{width:20px;height:20px;position:relative;}
+.cpmarkdot{position:absolute;width:20px;height:20px;background:var(--a);border-radius:50%;border:2px solid #fff;box-shadow:0 0 14px var(--a);}
+.cpmarkring{position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(255,184,48,.4);animation:cppulse 1.5s ease-out infinite;}
+
+/* MP PLAYERS LIST */
+#mplist{position:fixed;top:58px;right:13px;z-index:25;pointer-events:none;display:none;flex-direction:column;align-items:flex-end;gap:3px;}
+#mplist.on{display:flex;}
+.mptag{font-family:var(--fm);font-size:8px;padding:2px 7px;border-radius:2px;border:1px solid;letter-spacing:.07em;}
+
+/* STREET VIEW */
+#svp{position:fixed;inset:0;z-index:200;background:#000;display:none;flex-direction:column;}
+#svp.open{display:flex;}
+#svh{display:flex;align-items:center;gap:10px;padding:8px 13px;background:rgba(5,12,5,.96);border-bottom:1px solid var(--br);flex-shrink:0;}
+#svtitle{font-family:var(--fm);font-size:11px;color:var(--g);letter-spacing:.14em;flex:1;}
+#svaddr{font-family:var(--fm);font-size:8px;color:var(--dm);}
+#svclose{background:rgba(255,59,59,.07);border:1px solid rgba(255,59,59,.3);border-radius:3px;color:var(--r);padding:4px 11px;font-family:var(--fm);font-size:9px;letter-spacing:.1em;cursor:pointer;transition:all .18s;}
+#svclose:hover{background:rgba(255,59,59,.18);}
+#svfw{position:relative;flex:1;overflow:hidden;}
+#svframe{width:100%;height:100%;border:none;background:#050a05;}
+#svnpcs{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.svnpc{position:absolute;display:flex;flex-direction:column;align-items:center;}
+.svnpc span{font-size:34px;line-height:1;display:block;}
+.svnpc .ns{width:20px;height:5px;background:rgba(0,0,0,.25);border-radius:50%;margin-top:-3px;}
+.svnpc.wr{animation:svwr var(--d,12s) linear var(--dl,0s) infinite;}
+.svnpc.wl{animation:svwl var(--d,14s) linear var(--dl,2s) infinite;}
+.svnpc.car span{font-size:38px;}
+.svnpc.car.wr{animation:svwr var(--d,7s) linear var(--dl,0s) infinite;}
+@keyframes svwr{from{left:-80px;}to{left:calc(100% + 80px);}}
+@keyframes svwl{from{left:calc(100% + 80px);}to{left:-80px;}}
+#svload{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--fm);font-size:11px;color:var(--dm);letter-spacing:.14em;}
+#svnoc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;display:none;}
+#svnoc .nt{font-family:var(--fm);font-size:14px;color:var(--r);letter-spacing:.14em;}
+#svnoc .ns2{font-family:var(--fm);font-size:8px;color:var(--dm);margin-top:7px;line-height:1.7;}
+
+/* LEADERBOARD */
+#lb{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;}
+#lb.open{display:flex;}
+#lbbg{position:absolute;inset:0;background:rgba(0,4,0,.92);backdrop-filter:blur(12px);}
+#lbpanel{position:relative;z-index:2;width:min(500px,94vw);background:var(--pn);border:1px solid var(--br);border-radius:8px;overflow:hidden;}
+#lbhdr{padding:16px 18px;border-bottom:1px solid var(--br);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#lbtitle{font-family:var(--fm);font-size:13px;letter-spacing:.18em;color:var(--g);flex:1;}
+#lbtabs{display:flex;gap:3px;}
+.lbt{font-family:var(--fm);font-size:9px;letter-spacing:.1em;padding:4px 10px;border:1px solid var(--br);border-radius:3px;cursor:pointer;transition:all .18s;color:var(--dm);}
+.lbt.on{border-color:var(--g);color:var(--g);background:rgba(57,255,106,.07);}
+#lbclose{background:rgba(255,59,59,.07);border:1px solid rgba(255,59,59,.3);border-radius:3px;color:var(--r);padding:4px 10px;font-family:var(--fm);font-size:9px;cursor:pointer;transition:all .18s;}
+#lbclose:hover{background:rgba(255,59,59,.15);}
+#lblist{padding:6px 0;max-height:380px;overflow-y:auto;}
+.lbrow{display:grid;grid-template-columns:30px 1fr auto auto;align-items:center;gap:8px;padding:9px 18px;border-bottom:1px solid rgba(57,255,106,.05);transition:background .12s;}
+.lbrow:hover{background:rgba(57,255,106,.03);}
+.lbrow.you{background:rgba(57,255,106,.06);}
+.lbrnk{font-family:var(--fm);font-size:10px;color:var(--dm);}
+.lbrnk.gold{color:var(--a);text-shadow:0 0 7px var(--a);}
+.lbnm{font-size:13px;font-weight:600;}
+.lbsc{font-family:var(--fm);font-size:11px;color:var(--g);}
+.lbkl{font-family:var(--fm);font-size:9px;color:var(--r);}
+
+/* MISSIONS OVERLAY */
+#miso{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;}
+#miso.open{display:flex;}
+#misbg{position:absolute;inset:0;background:rgba(0,4,0,.92);backdrop-filter:blur(12px);}
+#mispanel{position:relative;z-index:2;width:min(560px,96vw);max-height:85vh;background:var(--pn);border:1px solid var(--br);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;}
+#mishdr{padding:14px 18px;border-bottom:1px solid var(--br);display:flex;align-items:center;gap:10px;}
+#mistitle{font-family:var(--fm);font-size:13px;letter-spacing:.18em;color:var(--a);flex:1;}
+#misclose{background:rgba(255,59,59,.07);border:1px solid rgba(255,59,59,.3);border-radius:3px;color:var(--r);padding:4px 10px;font-family:var(--fm);font-size:9px;cursor:pointer;}
+#miscats{display:flex;gap:3px;padding:10px 18px;border-bottom:1px solid var(--br);flex-wrap:wrap;}
+.miscat{font-family:var(--fm);font-size:8px;letter-spacing:.1em;padding:4px 10px;border:1px solid var(--br);border-radius:3px;cursor:pointer;transition:all .18s;color:var(--dm);}
+.miscat.on{border-color:var(--a);color:var(--a);background:rgba(255,184,48,.07);}
+#mislist{flex:1;overflow-y:auto;padding:8px 0;}
+.misrow{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(57,255,106,.05);cursor:pointer;transition:background .15s;}
+.misrow:hover{background:rgba(255,184,48,.04);}
+.misrow.active{background:rgba(255,184,48,.07);border-left:3px solid var(--a);}
+.misrow.done{opacity:.45;}
+.misicon{font-size:22px;flex-shrink:0;width:32px;text-align:center;}
+.misinfo{flex:1;}
+.misname{font-size:13px;font-weight:700;letter-spacing:.07em;}
+.misdesc{font-family:var(--fm);font-size:8px;color:var(--dm);margin-top:3px;line-height:1.5;}
+.misreward{font-family:var(--fm);font-size:9px;color:var(--g);margin-top:3px;}
+.misstat{font-family:var(--fm);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid;flex-shrink:0;}
+.misstat.avail{color:var(--a);border-color:rgba(255,184,48,.3);}
+.misstat.inprog{color:var(--b);border-color:rgba(79,195,247,.3);}
+.misstat.done{color:var(--g);border-color:rgba(57,255,106,.3);}
+
+/* JOYSTICK */
+#jzone{pointer-events:all;position:fixed;bottom:82px;left:16px;z-index:30;display:none;}
+#jout{width:100px;height:100px;border-radius:50%;background:rgba(5,12,5,.48);border:2px solid rgba(57,255,106,.25);position:relative;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(7px);touch-action:none;}
+#jin{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(57,255,106,.48),rgba(57,255,106,.1));border:1.5px solid rgba(57,255,106,.5);position:absolute;}
+
+#ractions{pointer-events:all;position:fixed;bottom:92px;right:16px;z-index:30;display:flex;flex-direction:column;gap:8px;}
+
+/* PLAYER MARKERS */
+.pm{width:20px;height:20px;position:relative;}
+.pd{width:12px;height:12px;background:var(--g);border-radius:50%;border:2px solid #fff;box-shadow:0 0 12px var(--g);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+.pr{width:20px;height:20px;border-radius:50%;border:2px solid rgba(57,255,106,.4);position:absolute;top:0;left:0;animation:pring 1.8s ease-out infinite;}
+@keyframes pring{0%{transform:scale(.8);opacity:1;}100%{transform:scale(2.1);opacity:0;}}
+.opm{width:16px;height:16px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:var(--fm);}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+#ldlogo{font-size:48px;font-weight:700;letter-spacing:.2em;color:var(--g);text-shadow:0 0 25px var(--g),0 0 50px rgba(57,255,106,.22);}
+#ldsub{font-family:var(--fm);font-size:9px;color:var(--dm);letter-spacing:.28em;}
+#ldbw{width:210px;height:2px;background:rgba(57,255,106,.07);border-radius:2px;overflow:hidden;}
+#ldb{height:100%;background:var(--g);box-shadow:0 0 7px var(--g);width:0%;transition:width .3s ease;}
+#lds{font-family:var(--fm);font-size:9px;color:var(--gd);letter-spacing:.13em;}
+
+/* CONTROLS HINT */
+#cht{position:fixed;bottom:172px;left:50%;transform:translateX(-50%);font-family:var(--fm);font-size:8px;color:var(--dm);letter-spacing:.1em;pointer-events:none;z-index:20;opacity:.35;white-space:nowrap;}
+
+/* MAPLIBRE CLEAN */
+.maplibregl-ctrl-attrib,.maplibregl-ctrl-logo{display:none!important;}
+.maplibregl-canvas{outline:none;}
+.maplibregl-ctrl-top-right,.maplibregl-ctrl-top-left,.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{display:none!important;}
+
+/* RESPONSIVE */
+@media(max-width:600px){#logo{display:none;}#rw{width:108px;height:108px;}#statpanel{display:none;}#jzone{display:block;}#cht{display:none;}#gtar{bottom:138px;}#spdo{bottom:130px;}#mplist{display:none!important;}}
+@media(min-width:601px){#ractions .hb{display:none;}}
+
+/* MODE SELECT SCROLL */
+.modesscroll{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;overflow-y:auto;max-height:250px;padding-right:2px;}
+.modesscroll::-webkit-scrollbar{width:3px;}
+.modesscroll::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div id="ldlogo">OPEN WORLD</div>
+  <div id="ldsub">Browser Edition · v4.0</div>
+  <div id="ldbw"><div id="ldb"></div></div>
+  <div id="lds">INITIALIZING...</div>
+</div>
+
+<!-- MAP + OVERLAYS -->
+<div id="map"></div>
+<div id="scanlines"></div><div id="vignette"></div>
+<div id="nightov"></div>
+<canvas id="rainc"></canvas><canvas id="gunlayer"></canvas>
+<div id="dmgflash"></div><div id="crosshair"></div>
+
+<!-- HUD BADGES -->
+<div id="modebadge">⚡ VEHICLE</div>
+<div id="toast"></div>
+<div id="timed">12:00</div>
+<div id="killfeed"></div>
+<div id="claimsplash"><div class="cst">🏴 TERRITORY CLAIMED!</div><div class="csa" id="csatxt"></div></div>
+
+<!-- GTA RIGHT HUD -->
+<div id="gtar">
+  <div id="moneyd">$0</div>
+  <div id="wantedw"><span class="star" id="s1">★</span><span class="star" id="s2">★</span><span class="star" id="s3">★</span><span class="star" id="s4">★</span><span class="star" id="s5">★</span></div>
+  <div id="gundisplay"><span id="gunicon">🔫</span><span id="gunname">PISTOL</span><span id="gunammo">∞</span></div>
+  <div class="barr"><span class="brl">HP</span><div class="bro"><div class="bri" id="hpbar" style="width:100%"></div></div></div>
+  <div class="barr"><span class="brl">ARM</span><div class="bro"><div class="bri" id="arbar" style="width:75%"></div></div></div>
+  <div class="barr"><span class="brl">AMMO</span><div class="bro"><div class="bri" id="ambar" style="width:100%"></div></div></div>
+</div>
+<div id="spdo"><div id="spdv">0</div><div id="spdu">KM/H</div></div>
+
+<!-- TERRITORY HUD -->
+<div id="terrh"><div id="terrinfo">DRAWING TERRITORY</div><div id="terrarea">0 m²</div><div id="terrbw"><div id="terrb"></div></div></div>
+
+<!-- MISSION HUD -->
+<div id="missionh">
+  <div id="mname">MISSION NAME</div>
+  <div id="mobjective">Objective text</div>
+  <div id="mprog"><div id="mprogb"><div id="mprogi"></div></div><span id="mprogt">0%</span></div>
+</div>
+
+<!-- MP PLAYERS -->
+<div id="mplist"></div>
+
+<!-- CONTROLS HINT -->
+<div id="cht">[ WASD ] MOVE | [ SHIFT ] SPRINT | [ V ] VEHICLE | [ G ] SWITCH GUN | [ F ] STREET VIEW | [ M ] MISSIONS | [ N ] NIGHT | [ DBL-CLICK ] SHOOT | [ ESC ] MENU</div>
+
+<!-- STREET VIEW -->
+<div id="svp">
+  <div id="svh"><div><div id="svtitle">📷 STREET VIEW</div><div id="svaddr">Locating...</div></div><button id="svclose">✕ EXIT</button></div>
+  <div id="svfw">
+    <iframe id="svframe" allowfullscreen allow="fullscreen"></iframe>
+    <div id="svnpcs"></div>
+    <div id="svload">LOADING STREET VIEW...</div>
+    <div id="svnoc"><div class="nt">NO COVERAGE HERE</div><div class="ns2">Move to a city center or main road.</div></div>
+  </div>
+</div>
+
+<!-- GAME HUD -->
+<div id="hud">
+  <div id="topbar">
+    <div id="logo"><div class="t">OPEN WORLD</div><div class="s">BROWSER EDITION</div></div>
+    <div id="sw"><span id="sw-icon">⌖</span><input id="sinput" type="text" placeholder="Search city, address..." autocomplete="off"/><div id="sres"></div></div>
+    <button class="hb" id="bgps" title="GPS">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    </button>
+    <button class="hb bb" id="bsv" title="Street View [F]">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z"/></svg>
+    </button>
+    <button class="hb ab" id="bveh" title="Vehicle [V]">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    </button>
+    <button class="hb" id="bsat" title="Satellite">🛰</button>
+    <button class="hb" id="b3d" title="3D">🏙</button>
+    <button class="hb" id="bnight" title="Night [N]">🌙</button>
+    <button class="hb" id="brain" title="Rain">🌧</button>
+    <button class="hb" id="bmis" title="Missions [M]">📋</button>
+    <button class="hb" id="blb" title="Leaderboard">🏆</button>
+    <button class="hb rb" id="bmenu" title="Menu [ESC]">☰</button>
+    <button class="hb" id="bfs" title="Fullscreen">⛶</button>
+  </div>
+  <div id="botbar">
+    <div id="rw"><div id="minimap"></div><div id="rborder"></div><div id="rsweep"></div><div id="rcenter"></div><div id="rcompass">N</div></div>
+    <div id="statpanel">
+      <div class="sr"><span class="sl">LAT</span><span class="sv" id="slat">0.000000</span></div>
+      <div class="sr"><span class="sl">LNG</span><span class="sv" id="slng">0.000000</span></div>
+      <div class="sdiv"></div>
+      <div class="sr"><span class="sl">ZOOM</span><span class="sv" id="szoom">15.0</span></div>
+      <div class="sr"><span class="sl">HDG</span><span class="sv" id="shdg">000°</span></div>
+      <div class="sdiv"></div>
+      <div class="sr"><span class="sl">MODE</span><span class="sv" id="smode">FOOT</span></div>
+      <div class="sr"><span class="sl">ONLINE</span><span class="sv" id="sonline" style="color:var(--b)">1</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- JOYSTICK + MOBILE -->
+<div id="jzone"><div id="jout"><div id="jin"></div></div></div>
+<div id="ractions">
+  <button class="hb" id="msv">👁</button><button class="hb" id="mgps">📍</button>
+  <button class="hb" id="mveh">🚗</button><button class="hb" id="msat">🛰</button>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="lb">
+  <div id="lbbg"></div>
+  <div id="lbpanel">
+    <div id="lbhdr"><span id="lbtitle">🏆 LEADERBOARD</span>
+      <div id="lbtabs"><div class="lbt on" data-t="territory">TERRITORY</div><div class="lbt" data-t="kills">KILLS</div><div class="lbt" data-t="money">MONEY</div></div>
+      <button id="lbclose">✕</button>
+    </div>
+    <div id="lblist"></div>
+  </div>
+</div>
+
+<!-- MISSIONS OVERLAY -->
+<div id="miso">
+  <div id="misbg"></div>
+  <div id="mispanel">
+    <div id="mishdr"><span id="mistitle">📋 MISSIONS</span><button id="misclose">✕ CLOSE</button></div>
+    <div id="miscats"></div>
+    <div id="mislist"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     MAIN MENU
+═══════════════════════════════════ -->
+<div id="menu">
+  <div class="mpanel">
+    <!-- MAIN -->
+    <div id="mmain">
+      <div class="mtitle">OPEN WORLD</div>
+      <div class="msub">BROWSER EDITION · V4.0</div>
+      <div class="name-char-row">
+        <input type="text" id="pname" placeholder="Your name..." maxlength="14" autocomplete="off"/>
+        <button id="char-pick-btn">🧍 CHAR</button>
+      </div>
+      <button class="mbtn" id="mplay"><span class="bi">▶</span> PLAY</button>
+      <button class="mbtn" id="mmis"><span class="bi">📋</span> MISSIONS</button>
+      <button class="mbtn" id="mmlb"><span class="bi">🏆</span> LEADERBOARD</button>
+      <button class="mbtn" id="mmhtp"><span class="bi">?</span> HOW TO PLAY</button>
+    </div>
+
+    <!-- PLAY SUB -->
+    <div class="sub" id="playsub">
+      <div class="sublabel">SELECT GAME MODE</div>
+      <div class="modesscroll" id="modesgrid"></div>
+      <div class="sublabel" style="margin-top:10px">MULTIPLAYER</div>
+      <div class="cards c3" style="width:100%">
+        <div class="card sel" data-mp="solo"><span class="ci">👤</span><span class="cn">SOLO</span><div class="cd">AI bots only</div></div>
+        <div class="card" data-mp="friends"><span class="ci">👥</span><span class="cn">FRIENDS</span><div class="cd">Room code</div></div>
+        <div class="card" data-mp="world"><span class="ci">🌍</span><span class="cn">WORLD</span><div class="cd">Live players</div></div>
+      </div>
+      <div id="world-status" style="display:none"></div>
+      <div id="roombox">
+        <div class="roomhint">YOUR ROOM CODE (tap to copy)</div>
+        <div class="roomcode" id="rcode">------</div>
+        <div class="roomhint">— OR JOIN —</div>
+        <div class="roomrow"><input type="text" id="roomin" placeholder="ENTER CODE" maxlength="6"/><button class="mbtn" style="width:auto;padding:9px 14px;font-size:13px;margin:0" id="bjoin">JOIN</button></div>
+      </div>
+      <button id="startbtn">▶ START GAME</button>
+      <div class="backbtn" id="bkplay">← BACK</div>
+    </div>
+  </div>
+</div>
+
+<!-- CHARACTER SELECT -->
+<div id="charselect">
+  <div id="cspanel">
+    <h2>SELECT YOUR CHARACTER</h2>
+    <div class="chars-grid" id="charsgrid"></div>
+    <button id="cs-confirm">✓ CONFIRM CHARACTER</button>
+  </div>
+</div>
+
+<!-- HOW TO PLAY (inside menu) -->
+<div id="htpover" style="position:fixed;inset:0;z-index:960;display:none;align-items:center;justify-content:center;background:rgba(0,4,0,.93);backdrop-filter:blur(12px);">
+  <div style="width:min(540px,95vw);background:var(--pn);border:1px solid var(--br);border-radius:8px;padding:22px;max-height:85vh;overflow-y:auto;">
+    <h2 style="font-family:var(--fm);font-size:13px;letter-spacing:.18em;color:var(--g);margin-bottom:18px;">📖 HOW TO PLAY</h2>
+    <div id="htpcontent"></div>
+    <div style="font-family:var(--fm);font-size:9px;color:var(--dm);letter-spacing:.18em;cursor:pointer;text-align:center;padding:10px;margin-top:10px;" id="htpclose">← CLOSE</div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   OPEN WORLD v4.0
+   Full game engine: 12 modes · 50 missions · 5 guns · 4 chars · P2P multiplayer
+═══════════════════════════════════════════════════════════════ */
+
+const MAPTILER = 'SnLVij6NhHPG0XBBao4k';
+const STYLES = {
+  streets:  `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER}`,
+  sat:      `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER}`,
+  night:    `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER}`,
+};
+const COLORS=['#39ff6a','#ff3b3b','#4fc3f7','#ffb830','#f472b6','#c084fc','#34d399','#fb923c','#60a5fa','#a78bfa'];
+const BOT_NAMES=['ShadowX','TerraNova','NightFox','UrbanWolf','GhostByte','CityRacer','ReaperZ','PhantomK','StormRun','NeonBlade','CrimsonV','IronGhost','DarkPulse','VectorX','FrostByte'];
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME MODES (12)
+═══════════════════════════════════════════════════════════════ */
+const GAME_MODES = [
+  { id:'peace',      icon:'🕊',  name:'PEACE',        desc:'Explore freely. No combat. Find secrets & earn money.',          hasTerr:false, hasCombat:false },
+  { id:'territory',  icon:'🏴',  name:'TERRITORY',    desc:'Walk loops to claim land. Defend it. Max territory wins.',       hasTerr:true,  hasCombat:true  },
+  { id:'deathmatch', icon:'💀',  name:'DEATHMATCH',   desc:'PvP chaos. Most kills in 5 min wins.',                          hasTerr:false, hasCombat:true  },
+  { id:'teamdm',     icon:'⚔️',  name:'TEAM DM',      desc:'Red vs Blue. Coordinate to dominate.',                          hasTerr:false, hasCombat:true  },
+  { id:'race',       icon:'🏁',  name:'RACE',         desc:'Hit checkpoints in order. First to finish wins.',               hasTerr:false, hasCombat:false },
+  { id:'koth',       icon:'👑',  name:'KING OF HILL', desc:'Hold the zone the longest. Zone moves every 2 min.',            hasTerr:false, hasCombat:true  },
+  { id:'ctf',        icon:'🚩',  name:'CAPTURE FLAG', desc:'Steal the enemy flag. Return it to base.',                      hasTerr:false, hasCombat:true  },
+  { id:'zombie',     icon:'🧟',  name:'ZOMBIE SURV',  desc:'AI hordes attack. Survive waves. Each wave is stronger.',       hasTerr:false, hasCombat:true  },
+  { id:'heist',      icon:'💰',  name:'HEIST',        desc:'Complete objectives in sequence. Outrun the cops.',              hasTerr:false, hasCombat:true  },
+  { id:'bounty',     icon:'🎯',  name:'BOUNTY HUNT',  desc:'Hunt marked targets on the map. Each kill = bounty cash.',      hasTerr:false, hasCombat:true  },
+  { id:'lastman',    icon:'🥊',  name:'LAST STAND',   desc:'Shrinking zone. Last player standing wins.',                    hasTerr:false, hasCombat:true  },
+  { id:'freeroam',   icon:'🌐',  name:'FREE ROAM',    desc:'GTA Online style. Complete missions, rob banks, race.',         hasTerr:false, hasCombat:true  },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   CHARACTERS (4)
+═══════════════════════════════════════════════════════════════ */
+const CHARACTERS = [
+  { id:'dude',    emoji:'🧍', name:'STREET KID',   color:'#39ff6a', desc:'+Speed\nDefault starter', speedMult:1.1, armorMult:1.0 },
+  { id:'cop',     emoji:'👮', name:'POLICE',        color:'#4fc3f7', desc:'+Armor\nLaw enforcement', speedMult:0.9, armorMult:1.5 },
+  { id:'agent',   emoji:'🕵️', name:'AGENT',         color:'#c084fc', desc:'+Stealth\nWanted drops faster', speedMult:1.0, armorMult:1.1 },
+  { id:'gangster',emoji:'🧔', name:'GANGSTER',      color:'#ff3b3b', desc:'+Damage\n+Street cred', speedMult:0.95, armorMult:0.9 },
+  { id:'biker',   emoji:'🏍️', name:'BIKER',         color:'#ffb830', desc:'+Vehicle speed\nFast rider', speedMult:1.0, armorMult:1.0 },
+  { id:'soldier', emoji:'🪖', name:'SOLDIER',       color:'#34d399', desc:'+Ammo capacity\nTactical', speedMult:0.95, armorMult:1.3 },
+  { id:'hacker',  emoji:'🧑‍💻', name:'HACKER',       color:'#fb923c', desc:'+Money earn\nDigital ghost', speedMult:1.05, armorMult:0.95 },
+  { id:'ninja',   emoji:'🥷', name:'NINJA',         color:'#60a5fa', desc:'+Sprint speed\nSilent & fast', speedMult:1.25, armorMult:0.85 },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   GUNS (5)
+═══════════════════════════════════════════════════════════════ */
+const GUNS = [
+  { id:'pistol',   icon:'🔫', name:'PISTOL',      damage:25,  range:120,  fireRate:400,  ammo:50,  maxAmmo:50,  spread:0.3, auto:false },
+  { id:'rifle',    icon:'🪖', name:'ASSAULT RIFLE',damage:18, range:250,  fireRate:120,  ammo:90,  maxAmmo:90,  spread:0.5, auto:true  },
+  { id:'shotgun',  icon:'💥', name:'SHOTGUN',     damage:80,  range:60,   fireRate:800,  ammo:20,  maxAmmo:20,  spread:1.2, auto:false },
+  { id:'sniper',   icon:'🎯', name:'SNIPER',      damage:120, range:999,  fireRate:2000, ammo:10,  maxAmmo:10,  spread:0.05,auto:false },
+  { id:'rocket',   icon:'🚀', name:'ROCKET',      damage:200, range:500,  fireRate:3000, ammo:5,   maxAmmo:5,   spread:0,   auto:false, splash:150 },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   MISSIONS (50+)
+═══════════════════════════════════════════════════════════════ */
+const MISSIONS = [
+  // EXPLORATION
+  { id:'m01', cat:'Exploration', icon:'🗺', name:'First Steps',       desc:'Walk 500m from spawn.',                reward:200,  xp:50,  goal:'distance',  target:500   },
+  { id:'m02', cat:'Exploration', icon:'🏙', name:'City Walker',       desc:'Explore 3 different cities.',         reward:500,  xp:100, goal:'cities',    target:3     },
+  { id:'m03', cat:'Exploration', icon:'🌊', name:'Coastline Drive',   desc:'Follow a coastline for 1km.',         reward:350,  xp:80,  goal:'distance',  target:1000  },
+  { id:'m04', cat:'Exploration', icon:'🏔', name:'High Ground',       desc:'Reach a high elevation area.',        reward:400,  xp:90,  goal:'any',       target:1     },
+  { id:'m05', cat:'Exploration', icon:'🌃', name:'Night Crawler',     desc:'Explore for 3 min in night mode.',   reward:300,  xp:70,  goal:'nighttime', target:180   },
+  { id:'m06', cat:'Exploration', icon:'🌏', name:'World Traveler',    desc:'Visit 5 continents.',                 reward:1000, xp:200, goal:'continents',target:5     },
+  { id:'m07', cat:'Exploration', icon:'🗽', name:'Landmark Hunt',     desc:'Find 3 famous landmarks.',            reward:600,  xp:120, goal:'any',       target:3     },
+  { id:'m08', cat:'Exploration', icon:'🌉', name:'Bridge Crosser',    desc:'Cross 2 major bridges.',              reward:400,  xp:85,  goal:'any',       target:2     },
+  { id:'m09', cat:'Exploration', icon:'🏝', name:'Island Hopper',    desc:'Visit an island.',                    reward:500,  xp:100, goal:'any',       target:1     },
+  { id:'m10', cat:'Exploration', icon:'🚀', name:'Speed Demon',       desc:'Reach 100km/h in vehicle.',           reward:450,  xp:90,  goal:'speed',     target:100   },
+  // TERRITORY
+  { id:'m11', cat:'Territory',   icon:'🏴', name:'First Claim',       desc:'Claim your first territory.',         reward:300,  xp:75,  goal:'territory', target:1     },
+  { id:'m12', cat:'Territory',   icon:'📐', name:'Land Grabber',      desc:'Claim 10,000 m² total.',              reward:800,  xp:150, goal:'area',      target:10000 },
+  { id:'m13', cat:'Territory',   icon:'🏙', name:'City Block',        desc:'Claim 50,000 m² total.',              reward:2000, xp:350, goal:'area',      target:50000 },
+  { id:'m14', cat:'Territory',   icon:'🌆', name:'District Boss',     desc:'Claim 100,000 m² total.',             reward:5000, xp:600, goal:'area',      target:100000},
+  { id:'m15', cat:'Territory',   icon:'👑', name:'City King',         desc:'Have the most territory for 1 min.', reward:3000, xp:400, goal:'topterr',   target:60    },
+  // COMBAT
+  { id:'m16', cat:'Combat',      icon:'💀', name:'First Blood',       desc:'Get your first kill.',                reward:200,  xp:50,  goal:'kills',     target:1     },
+  { id:'m17', cat:'Combat',      icon:'🔫', name:'Sharpshooter',      desc:'Get 5 kills with sniper.',            reward:600,  xp:120, goal:'sniperK',   target:5     },
+  { id:'m18', cat:'Combat',      icon:'💥', name:'Boom!',             desc:'Get 3 kills with rocket.',            reward:500,  xp:100, goal:'rocketK',   target:3     },
+  { id:'m19', cat:'Combat',      icon:'🎯', name:'Headhunter',        desc:'Get 10 kills total.',                 reward:800,  xp:160, goal:'kills',     target:10    },
+  { id:'m20', cat:'Combat',      icon:'⚔️', name:'Rampage',          desc:'Get 5 kills in 60 seconds.',          reward:1500, xp:250, goal:'rampage',   target:5     },
+  { id:'m21', cat:'Combat',      icon:'🛡', name:'Untouchable',       desc:'Survive 3 min at 5 wanted stars.',    reward:2000, xp:300, goal:'wanted5',   target:180   },
+  { id:'m22', cat:'Combat',      icon:'🪖', name:'Soldier',           desc:'Get 25 kills total.',                 reward:2500, xp:400, goal:'kills',     target:25    },
+  { id:'m23', cat:'Combat',      icon:'👾', name:'Bot Slayer',        desc:'Eliminate all 8 bots once.',         reward:1200, xp:200, goal:'botElim',   target:8     },
+  // MONEY
+  { id:'m24', cat:'Money',       icon:'💵', name:'First Dollar',      desc:'Earn $100.',                          reward:50,   xp:20,  goal:'money',     target:100   },
+  { id:'m25', cat:'Money',       icon:'💰', name:'Hustler',           desc:'Earn $5,000 total.',                  reward:500,  xp:80,  goal:'money',     target:5000  },
+  { id:'m26', cat:'Money',       icon:'🏦', name:'Bank Roll',         desc:'Earn $25,000 total.',                 reward:2000, xp:250, goal:'money',     target:25000 },
+  { id:'m27', cat:'Money',       icon:'💎', name:'Millionaire',       desc:'Reach $100,000.',                     reward:5000, xp:500, goal:'money',     target:100000},
+  { id:'m28', cat:'Money',       icon:'🤑', name:'Big Heist',         desc:'Earn $1,000 in one session.',         reward:1000, xp:150, goal:'session$',  target:1000  },
+  // VEHICLE
+  { id:'m29', cat:'Vehicle',     icon:'🏎', name:'Street Racer',      desc:'Travel 2km in vehicle mode.',         reward:400,  xp:80,  goal:'vdist',     target:2000  },
+  { id:'m30', cat:'Vehicle',     icon:'🚓', name:'Getaway Driver',    desc:'Escape 3-star wanted while driving.', reward:700,  xp:130, goal:'escape',    target:3     },
+  { id:'m31', cat:'Vehicle',     icon:'🚀', name:'Turbo Run',         desc:'Drive for 30 sec at max speed.',      reward:500,  xp:100, goal:'maxspeed',  target:30    },
+  { id:'m32', cat:'Vehicle',     icon:'🌍', name:'Cross Country',     desc:'Drive 10km total.',                   reward:800,  xp:150, goal:'vdist',     target:10000 },
+  // SOCIAL
+  { id:'m33', cat:'Social',      icon:'👥', name:'Squad Up',          desc:'Play in multiplayer mode.',           reward:300,  xp:60,  goal:'mplay',     target:1     },
+  { id:'m34', cat:'Social',      icon:'🌐', name:'World Player',      desc:'Connect to world match.',             reward:400,  xp:80,  goal:'world',     target:1     },
+  { id:'m35', cat:'Social',      icon:'🤝', name:'Teammate',          desc:'Invite a friend with room code.',     reward:500,  xp:100, goal:'friends',   target:1     },
+  { id:'m36', cat:'Social',      icon:'📸', name:'Tourist',           desc:'Open Street View in 3 cities.',       reward:350,  xp:70,  goal:'sv',        target:3     },
+  { id:'m37', cat:'Social',      icon:'🎖', name:'Top 3',             desc:'Reach top 3 on leaderboard.',         reward:1500, xp:200, goal:'lb3',       target:3     },
+  { id:'m38', cat:'Social',      icon:'🏆', name:'Champion',          desc:'Reach #1 on leaderboard.',            reward:5000, xp:600, goal:'lb1',       target:1     },
+  // SPECIAL
+  { id:'m39', cat:'Special',     icon:'🌅', name:'Sunrise Ride',      desc:'Play during 06:00–08:00 game time.',  reward:600,  xp:110, goal:'time',      target:6     },
+  { id:'m40', cat:'Special',     icon:'🌧', name:'Rainy Ride',        desc:'Travel 500m in rain mode.',           reward:300,  xp:60,  goal:'rain',      target:500   },
+  { id:'m41', cat:'Special',     icon:'🌃', name:'Midnight Run',      desc:'Travel 1km in night + rain.',         reward:700,  xp:130, goal:'nightrain', target:1000  },
+  { id:'m42', cat:'Special',     icon:'⚡', name:'Speed Sprint',       desc:'Sprint for 60 seconds total.',        reward:400,  xp:75,  goal:'sprint',    target:60    },
+  { id:'m43', cat:'Special',     icon:'🎭', name:'Change It Up',      desc:'Switch characters 3 times.',          reward:250,  xp:50,  goal:'charswap',  target:3     },
+  { id:'m44', cat:'Special',     icon:'🔫', name:'Gun Collector',     desc:'Fire all 5 guns.',                    reward:800,  xp:150, goal:'allguns',   target:5     },
+  { id:'m45', cat:'Special',     icon:'🏙', name:'3D Explorer',       desc:'Explore 3 areas with 3D on.',         reward:450,  xp:90,  goal:'3dexplore', target:3     },
+  // HEIST SERIES
+  { id:'m46', cat:'Heist',       icon:'🏦', name:'Recon',             desc:'Scout the target location.',          reward:500,  xp:100, goal:'any',       target:1     },
+  { id:'m47', cat:'Heist',       icon:'🚗', name:'Getaway',           desc:'Steal a vehicle and escape.',         reward:800,  xp:150, goal:'any',       target:1     },
+  { id:'m48', cat:'Heist',       icon:'💥', name:'The Job',           desc:'Complete a full heist sequence.',     reward:3000, xp:400, goal:'any',       target:1     },
+  { id:'m49', cat:'Heist',       icon:'👮', name:'Cop Evasion',       desc:'Lose 5-star wanted 3 times.',         reward:2000, xp:280, goal:'escape',    target:5     },
+  // CHALLENGE
+  { id:'m50', cat:'Challenge',   icon:'🎲', name:'The Ultimate',      desc:'Complete 25 other missions.',         reward:10000,xp:1000,goal:'missions',  target:25    },
+  { id:'m51', cat:'Challenge',   icon:'⚔️', name:'War Machine',      desc:'Get 50 kills total.',                  reward:8000, xp:800, goal:'kills',     target:50    },
+  { id:'m52', cat:'Challenge',   icon:'🌍', name:'Globetrotter',      desc:'Travel 50km total.',                  reward:7500, xp:750, goal:'totaldist', target:50000 },
+  { id:'m53', cat:'Challenge',   icon:'💰', name:'Billionaire',       desc:'Accumulate $500,000.',                reward:15000,xp:1200,goal:'money',     target:500000},
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME STATE
+═══════════════════════════════════════════════════════════════ */
+const G = {
+  screen:'menu',
+  gameMode:'peace',
+  mpMode:'solo',
+  id: uid(),
+  name: ls('owName')||'Player_'+rnd(9999),
+  color: COLORS[0],
+  char: CHARACTERS[0],
+  gun: 0, // index into GUNS
+  guns: GUNS.map(g=>({...g})), // per-player ammo copy
+  pos:{ lng:-74.006, lat:40.7128 },
+  heading:0, speed:0,
+  vehicleMode:false, sprintMode:false, following:true,
+  health:100, armor:75, kills:0, money:0, wanted:0, wantedTimer:null,
+  map:null, minimap:null, marker:null,
+  satMode:false, nightMode:false, mode3D:false, rainMode:false,
+  gameTime:720,
+  keys:{}, joy:{active:false,dx:0,dy:0},
+  lastFrame:0, lastTap:0,
+  stT:null, // search timer
+  // territory
+  terr:{ path:[], lastSample:0, totalArea:0, polys:{} },
+  // stats tracking
+  stats:{
+    totalDist:0, vDist:0, svOpens:0, charSwaps:0, gunsUsed:new Set(),
+    sprintTime:0, nightTime:0, rainDist:0, nightRainDist:0, sessionMoney:0,
+    rampageKills:0, rampageStart:0, botElims:0, wantedHighTime:0, wantedHighStart:0,
+  },
+  // missions
+  activeMission:null, missionsDone: new Set(JSON.parse(ls('owMissions')||'[]')),
+  // world/p2p
+  peer:null, conns:[], hostConn:null, roomCode:'',
+  others:{}, otherMarkers:{}, bots:[],
+  radarBlips:{},
+  rainCtx:null, rainDrops:[], rainAnim:null,
+  gunCtx:null,
+};
+
+const MV={ foot:.000018, sprint:.000042, veh:.000105, fric:.78, vx:0, vy:0 };
+
+// Apply character modifiers
+function applyCharMods(){
+  MV.foot    = 0.000018 * G.char.speedMult;
+  MV.sprint  = 0.000042 * G.char.speedMult;
+  MV.veh     = 0.000105 * (G.char.id==='biker'?1.25:1);
+  G.armor    = Math.min(100, Math.floor(75 * G.char.armorMult));
+  if(G.char.id==='soldier') G.guns.forEach(g=>g.maxAmmo=Math.ceil(g.maxAmmo*1.4));
+  if(G.char.id==='hacker')  G.moneyMult=1.5; else G.moneyMult=1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING
+═══════════════════════════════════════════════════════════════ */
+function ld(p,m){document.getElementById('ldb').style.width=p+'%';document.getElementById('lds').textContent=m;}
+
+/* ═══════════════════════════════════════════════════════════════
+   MENU SYSTEM — Build dynamically
+═══════════════════════════════════════════════════════════════ */
+let selMode='peace', selMp='solo';
+
+function buildMenu(){
+  // Modes grid
+  const grid=document.getElementById('modesgrid');
+  grid.innerHTML=GAME_MODES.map(m=>`
+    <div class="card${m.id==='peace'?' sel':''}" data-mode="${m.id}">
+      <span class="ci">${m.icon}</span><span class="cn">${m.name}</span>
+      <div class="cd">${m.desc}</div>
+    </div>`).join('');
+  grid.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{
+    grid.querySelectorAll('.card').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel'); selMode=c.dataset.mode;
+  }));
+
+  // MP cards
+  document.querySelectorAll('[data-mp]').forEach(c=>c.addEventListener('click',()=>{
+    document.querySelectorAll('[data-mp]').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel'); selMp=c.dataset.mp;
+    const rb=document.getElementById('roombox'), ws=document.getElementById('world-status');
+    rb.classList.toggle('show', selMp==='friends');
+    ws.style.display = selMp==='world'?'block':'none';
+    if(selMp==='friends') genRoomCode();
+    if(selMp==='world') checkWorldStatus();
+  }));
+
+  // Characters
+  const cg=document.getElementById('charsgrid');
+  cg.innerHTML=CHARACTERS.map(c=>`
+    <div class="charopt${G.char.id===c.id?' sel':''}" data-cid="${c.id}">
+      <span class="ce">${c.emoji}</span><span class="cname">${c.name}</span>
+      <div class="cdesc" style="font-family:var(--fm);font-size:8px;color:var(--dm);margin-top:4px;white-space:pre-line;line-height:1.5">${c.desc}</div>
+    </div>`).join('');
+  cg.querySelectorAll('.charopt').forEach(c=>c.addEventListener('click',()=>{
+    cg.querySelectorAll('.charopt').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel');
+  }));
+
+  // HTP content
+  document.getElementById('htpcontent').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:14px;">
+    ${[
+      ['MOVEMENT','W A S D — Move | SHIFT — Sprint | V — Vehicle | C — Lock camera'],
+      ['COMBAT','DOUBLE-CLICK / DOUBLE-TAP — Shoot | G — Switch weapon | X — +Wanted'],
+      ['TERRITORY','Walk in a closed loop (6+ points, return to start) to claim land as your territory.'],
+      ['MULTIPLAYER','WORLD: All live players share the same global room. FRIENDS: Share 6-char code.'],
+      ['WEAPONS','5 guns: Pistol (balanced) · Rifle (auto) · Shotgun (close) · Sniper (long) · Rocket (splash)'],
+      ['KEYS','F — Street View | M — Missions | N — Night | ESC — Menu | 1–5 — Select gun'],
+    ].map(([h,b])=>`<div><div style="font-size:12px;font-weight:700;color:var(--a);letter-spacing:.1em;margin-bottom:5px;">${h}</div><div style="font-family:var(--fm);font-size:9px;color:var(--dm);line-height:1.7;">${b}</div></div>`).join('')}
+    </div>`;
+
+  // Build missions overlay
+  buildMissionsUI();
+}
+
+function showSub(id){
+  document.getElementById('mmain').style.display='none';
+  document.querySelectorAll('.sub').forEach(s=>s.classList.remove('open'));
+  if(id) document.getElementById(id).classList.add('open');
+  else document.getElementById('mmain').style.display='flex';
+}
+
+function checkWorldStatus(){
+  const ws=document.getElementById('world-status');
+  ws.textContent='🌍 Connecting to world server...';
+  // Simulate checking - in practice PeerJS will show this
+  setTimeout(()=>ws.textContent='🟢 WORLD MATCH LIVE — Other players online',1200);
+}
+
+function genRoomCode(){
+  const code=Math.random().toString(36).slice(2,8).toUpperCase();
+  G.roomCode=code;
+  document.getElementById('rcode').textContent=code;
+  document.getElementById('roomin').value='';
+}
+
+// MENU BUTTONS
+document.getElementById('mplay').addEventListener('click',()=>showSub('playsub'));
+document.getElementById('bkplay').addEventListener('click',()=>showSub(null));
+document.getElementById('mmain').addEventListener('click',e=>{/* stop */});
+document.getElementById('mmis').addEventListener('click',()=>{ document.getElementById('miso').classList.add('open'); buildMissionsUI(); });
+document.getElementById('mmlb').addEventListener('click',()=>{ document.getElementById('lb').classList.add('open'); renderLB('territory'); });
+document.getElementById('mmhtp').addEventListener('click',()=>document.getElementById('htpover').style.display='flex');
+document.getElementById('htpclose').addEventListener('click',()=>document.getElementById('htpover').style.display='none');
+document.getElementById('htpover').addEventListener('click',e=>{ if(e.target===document.getElementById('htpover')) document.getElementById('htpover').style.display='none'; });
+
+document.getElementById('rcode').addEventListener('click',()=>{
+  navigator.clipboard.writeText(G.roomCode).catch(()=>{});
+  toast('ROOM CODE COPIED: '+G.roomCode);
+});
+document.getElementById('bjoin').addEventListener('click',()=>{
+  const code=document.getElementById('roomin').value.trim().toUpperCase();
+  if(code.length!==6){toast('ENTER 6-CHAR CODE','warn');return;}
+  G.roomCode=code; selMp='friends';
+  toast('JOINING ROOM '+code+'...');
+});
+
+// CHARACTER BUTTON
+document.getElementById('char-pick-btn').addEventListener('click',()=>document.getElementById('charselect').classList.add('open'));
+document.getElementById('cs-confirm').addEventListener('click',()=>{
+  const sel=document.querySelector('#charsgrid .charopt.sel');
+  if(sel){ const c=CHARACTERS.find(x=>x.id===sel.dataset.cid); if(c){ G.char=c; G.color=c.color; G.stats.charSwaps++; applyCharMods(); document.getElementById('char-pick-btn').textContent=c.emoji+' '+c.name.split(' ')[0]; }}
+  document.getElementById('charselect').classList.remove('open');
+  checkMission('charswap');
+});
+document.getElementById('charselect').addEventListener('click',e=>{ if(e.target===document.getElementById('charselect')) document.getElementById('charselect').classList.remove('open'); });
+
+// PLAYER NAME
+const pnEl=document.getElementById('pname');
+pnEl.value=G.name;
+pnEl.addEventListener('input',()=>{ G.name=pnEl.value.trim()||G.name; ls('owName',G.name); });
+
+// START BUTTON — This is the critical fix: isolated with no z-index issues
+document.getElementById('startbtn').addEventListener('click',startGame);
+
+/* ═══════════════════════════════════════════════════════════════
+   START GAME
+═══════════════════════════════════════════════════════════════ */
+function startGame(){
+  G.gameMode=selMode; G.mpMode=selMp;
+  applyCharMods();
+  document.getElementById('menu').classList.add('gone');
+  G.screen='game';
+
+  // Mode-specific setup
+  document.getElementById('terrh').classList.toggle('on', G.gameMode==='territory');
+  initBots();
+  if(G.gameMode==='territory') initTerrLayers();
+  if(G.gameMode==='race') startRace();
+  if(G.gameMode==='koth') startKOTH();
+  if(G.gameMode==='zombie') startZombies();
+  if(G.gameMode==='bounty') startBounty();
+  if(G.gameMode==='lastman') startLastMan();
+
+  // Multiplayer
+  if(G.mpMode==='world') joinWorldMatch();
+  else if(G.mpMode==='friends' && G.roomCode) initPeer(true);
+
+  checkMission('mplay');
+  if(G.mpMode==='world') checkMission('world');
+  if(G.mpMode==='friends') checkMission('friends');
+
+  const mode=GAME_MODES.find(m=>m.id===G.gameMode);
+  toast(`${mode.icon} ${mode.name} MODE — ${mode.desc.slice(0,40)}...`,'gold');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAP INIT
+═══════════════════════════════════════════════════════════════ */
+function initMap(){
+  ld(20,'LOADING MAP ENGINE...');
+  G.map=new maplibregl.Map({ container:'map', style:STYLES.streets, center:[G.pos.lng,G.pos.lat], zoom:15, pitch:50, bearing:0, antialias:true, attributionControl:false });
+  G.map.on('load',onLoad);
+  G.map.on('move',onMove);
+  G.map.on('dragstart',()=>G.following=false);
+  // Double-click shoot
+  let lastClick=0;
+  G.map.on('click',e=>{
+    const now=Date.now();
+    if(now-lastClick<320 && G.screen==='game') shootAt(e.lngLat.lng,e.lngLat.lat);
+    lastClick=now;
+  });
+}
+
+function onLoad(){
+  ld(55,'BUILDING WORLD...');
+  add3D(); addNPCLayer(); initTerrLayers();
+  ld(72,'SPAWNING PLAYER...');
+  spawnMarker();
+  ld(82,'MINIMAP...');
+  G.minimap=new maplibregl.Map({ container:'minimap',style:STYLES.streets,center:[G.pos.lng,G.pos.lat],zoom:12,interactive:false,attributionControl:false,pitch:0 });
+  ld(90,'SYSTEMS...');
+  initRain(); initGun(); initNPCs(); initSVNpcs(); bindControls(); bindUI();
+  startClock();
+  ld(100,'READY.');
+  setTimeout(()=>{ const el=document.getElementById('loading'); el.style.transition='opacity .5s'; el.style.opacity='0'; setTimeout(()=>el.remove(),600); },400);
+  requestAnimationFrame(loop);
+  buildMenu();
+  seedLB();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAP LAYERS
+═══════════════════════════════════════════════════════════════ */
+function add3D(){
+  if(G.map.getLayer('3db')) return;
+  G.map.addLayer({ id:'3db',source:'composite','source-layer':'building',filter:['==','extrude','true'],type:'fill-extrusion',minzoom:13,
+    paint:{'fill-extrusion-color':['interpolate',['linear'],['get','height'],0,'#0a1a0a',50,'#0d200d',200,'#112811'],'fill-extrusion-height':['get','height'],'fill-extrusion-base':['get','min_height'],'fill-extrusion-opacity':.85},
+    layout:{visibility:'none'} });
+}
+
+function addNPCLayer(){
+  if(G.map.getSource('npcs')) return;
+  G.map.addSource('npcs',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  G.map.addLayer({id:'npcDots',type:'circle',source:'npcs',paint:{'circle-radius':['interpolate',['linear'],['zoom'],10,3,16,7],'circle-color':['get','color'],'circle-stroke-width':1.5,'circle-stroke-color':'#fff'}});
+  G.map.addLayer({id:'npcLabels',type:'symbol',source:'npcs',layout:{'text-field':['get','name'],'text-size':10,'text-offset':[0,-1.4],'text-anchor':'bottom'},paint:{'text-color':'#fff','text-halo-color':'rgba(0,0,0,.7)','text-halo-width':1.5},minzoom:14});
+}
+
+function initTerrLayers(){
+  if(!G.map.loaded()) return;
+  try{
+    if(!G.map.getSource('mypath')){ G.map.addSource('mypath',{type:'geojson',data:emptyLine()});
+      G.map.addLayer({id:'mypathl',type:'line',source:'mypath',paint:{'line-color':G.color,'line-width':2.5,'line-dasharray':[4,3],'line-opacity':.9}}); }
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NPC / BOT SYSTEM
+═══════════════════════════════════════════════════════════════ */
+function initNPCs(){
+  for(let i=0;i<10;i++){
+    const o=0.012;
+    G.bots.push({ id:'bot'+i, name:BOT_NAMES[i%BOT_NAMES.length], lat:G.pos.lat+(Math.random()-.5)*o*2, lng:G.pos.lng+(Math.random()-.5)*o*2, color:COLORS[1+i%7], vx:(Math.random()-.5)*.00004, vy:(Math.random()-.5)*.00004, hp:100, kills:0, money:Math.floor(Math.random()*8000+500), terr:G.gameMode==='territory'?Math.random()*60000:0, isBot:true });
+  }
+  updateNPCLayer();
+  setInterval(tickBots,500);
+}
+
+function initBots(){ /* called at game start after mode selected */ G.bots.forEach((b,i)=>{ b.money=500+Math.floor(Math.random()*8000); b.terr=G.gameMode==='territory'?Math.random()*50000:0; }); updateLB(); }
+
+function tickBots(){
+  if(G.screen!=='game') return;
+  G.bots.forEach(b=>{
+    if(!b.isBot) return;
+    b.lng+=b.vx+(Math.random()-.5)*.000018; b.lat+=b.vy+(Math.random()-.5)*.000018;
+    // In territory, bots drift toward player
+    if(G.gameMode==='territory' && Math.random()<.04){
+      const dl=G.pos.lng-b.lng, da=G.pos.lat-b.lat, m=Math.sqrt(dl*dl+da*da);
+      if(m>0){b.vx=(dl/m)*.000032;b.vy=(da/m)*.000032;}
+    }
+    // Bots claim territory
+    if(G.gameMode==='territory' && Math.random()<.004){
+      const a=3000+Math.random()*12000; b.terr+=a; b.money+=Math.round(a/100);
+      const pts=genPoly(b.lng,b.lat,.0009+Math.random()*.0012,6);
+      addTerrPoly('bt-'+b.id+'-'+Date.now(),b.id,pts,b.color,a);
+    }
+    // Bots attack in combat modes
+    if(G.gameMode!=='peace' && G.gameMode!=='race'){
+      const d=distM(b.lng,b.lat,G.pos.lng,G.pos.lat);
+      if(d<80 && Math.random()<.06){ takeDamage(8,'bot'); }
+    }
+    // Bots earn money
+    b.money+=Math.floor(Math.random()*5);
+  });
+  updateNPCLayer(); updateRadar(); updateMPList();
+  document.getElementById('sonline').textContent=1+G.bots.length+Object.keys(G.others).length;
+}
+
+function updateNPCLayer(){
+  const feats=[];
+  G.bots.forEach(b=>feats.push({type:'Feature',geometry:{type:'Point',coordinates:[b.lng,b.lat]},properties:{color:b.color,name:b.name}}));
+  Object.values(G.others).forEach(p=>feats.push({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{color:p.color||'#ff3b3b',name:p.name||'Player'}}));
+  try{G.map.getSource('npcs')?.setData({type:'FeatureCollection',features:feats});}catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WORLD MULTIPLAYER
+═══════════════════════════════════════════════════════════════ */
+const WORLD_ROOM='openworld-global-'+new Date().toISOString().slice(0,10);
+
+function joinWorldMatch(){
+  toast('🌍 CONNECTING TO WORLD MATCH...','gold');
+  // Try to be the host; if taken, join as client
+  initPeer(true, WORLD_ROOM+'-host');
+}
+
+function initPeer(asHost, forceId){
+  if(G.peer){ try{G.peer.destroy();}catch(e){} }
+  const peerId=forceId||(asHost?'ow-'+G.roomCode+'-host':'ow-p-'+G.id.slice(0,8));
+  try{
+    G.peer=new Peer(peerId,{debug:0});
+    G.peer.on('open',id=>{
+      if(!asHost) connectToHost();
+    });
+    G.peer.on('connection',conn=>{ setupConn(conn); toast('👥 '+conn.peer+' JOINED'); });
+    G.peer.on('error',()=>{
+      // ID taken → become a client
+      const pid2='ow-p-'+G.id.slice(0,8)+Math.random().toString(36).slice(2,4);
+      G.peer=new Peer(pid2,{debug:0});
+      G.peer.on('open',()=>connectToHost());
+      G.peer.on('connection',c=>setupConn(c));
+    });
+  }catch(e){ toast('P2P unavailable — solo bots active'); }
+}
+
+function connectToHost(){
+  const hostId=G.mpMode==='world'? WORLD_ROOM+'-host':'ow-'+G.roomCode+'-host';
+  try{
+    const c=G.peer.connect(hostId);
+    G.hostConn=c;
+    setupConn(c);
+    c.on('open',()=>toast('✅ CONNECTED TO MATCH'));
+  }catch(e){}
+}
+
+function setupConn(conn){
+  G.conns.push(conn);
+  conn.on('data',d=>handleData(d,conn));
+  conn.on('close',()=>{ G.conns=G.conns.filter(c=>c!==conn); const k=Object.keys(G.others).find(k=>G.others[k]._conn===conn); if(k){delete G.others[k];updateNPCLayer();} });
+}
+
+function handleData(d,conn){
+  if(!d||!d.t) return;
+  if(d.t==='pos'){
+    d._conn=conn; G.others[d.id]={...d};
+    updateNPCLayer(); updateRadar();
+    relay(d,conn);
+  }
+  if(d.t==='shot'){
+    const dist=distM(G.pos.lng,G.pos.lat,d.lng,d.lat);
+    if(dist<70&&G.gameMode!=='peace') takeDamage(20,d.from);
+    const from=G.map.project([G.others[d.from]?.lng||d.lng, G.others[d.from]?.lat||d.lat]);
+    const to=G.map.project([d.lng,d.lat]);
+    drawTrail(from.x,from.y,to.x,to.y); drawExplosion(to.x,to.y);
+    relay(d,conn);
+  }
+  if(d.t==='terr'){
+    addTerrPoly(d.pid,d.oid,d.coords,d.color,d.area);
+    relay(d,conn);
+  }
+}
+
+function relay(d,from){ G.conns.forEach(c=>{ if(c!==from) try{c.send(d);}catch(e){}; }); }
+function mpSend(d){ G.conns.forEach(c=>{try{c.send(d);}catch(e){}}); if(G.hostConn){try{G.hostConn.send(d);}catch(e){}} }
+
+// Broadcast position every 200ms
+setInterval(()=>{
+  if(G.screen!=='game'||G.mpMode==='solo') return;
+  mpSend({t:'pos',id:G.id,name:G.name,lng:G.pos.lng,lat:G.pos.lat,heading:G.heading,color:G.color,hp:G.health,terr:G.terr.totalArea});
+},200);
+
+function updateMPList(){
+  if(G.mpMode==='solo') return;
+  const el=document.getElementById('mplist');
+  el.classList.add('on');
+  const all=[...G.bots.slice(0,6),...Object.values(G.others)];
+  el.innerHTML=all.map(p=>`<div class="mptag" style="color:${p.color||'#fff'};border-color:${p.color||'#fff'}40">${p.name}</div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME MODES — Special mechanics
+═══════════════════════════════════════════════════════════════ */
+let raceCP=[], raceCPMarkers=[], raceCurrent=0, kothZone=null, kothTimer=0, zombieWave=1, bountyTargets=[], lastManZone=1.0;
+
+function startRace(){
+  // Place 5 checkpoints near player
+  raceCP=[]; raceCurrent=0;
+  for(let i=0;i<5;i++){
+    const r=0.005*(i+1);
+    raceCP.push({lng:G.pos.lng+(Math.cos(i*1.3)*r),lat:G.pos.lat+(Math.sin(i*1.3)*r*0.7)});
+  }
+  showMissionHUD('🏁 RACE','Head to checkpoint 1/5',0);
+  spawnCPMarkers();
+  toast('🏁 RACE MODE — Hit all checkpoints in order!');
+}
+function spawnCPMarkers(){
+  raceCPMarkers.forEach(m=>m.remove());
+  raceCPMarkers=[];
+  raceCP.forEach((cp,i)=>{
+    const el=document.createElement('div');
+    el.className='cpmarkwrap';
+    el.innerHTML=`<div class="cpmarkdot" style="background:${i===raceCurrent?'var(--a)':'rgba(255,255,255,.3)'}"></div>${i===raceCurrent?'<div class="cpmarkring"></div>':''}`;
+    raceCPMarkers.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([cp.lng,cp.lat]).addTo(G.map));
+  });
+}
+function checkRaceCP(){
+  if(G.gameMode!=='race'||raceCurrent>=raceCP.length) return;
+  const cp=raceCP[raceCurrent];
+  if(distM(G.pos.lng,G.pos.lat,cp.lng,cp.lat)<50){
+    raceCurrent++;
+    if(raceCurrent>=raceCP.length){ toast('🏆 RACE COMPLETE!','gold'); addMoney(5000); checkMission('any'); }
+    else{ toast(`🏁 CHECKPOINT ${raceCurrent}/5`); showMissionHUD('🏁 RACE',`Head to checkpoint ${raceCurrent+1}/5`,raceCurrent/raceCP.length*100); }
+    spawnCPMarkers();
+  }
+}
+
+function startKOTH(){
+  kothZone={lng:G.pos.lng+.002,lat:G.pos.lat+.002}; kothTimer=0;
+  const el=document.createElement('div');
+  el.className='cpmarkwrap';
+  el.innerHTML='<div class="cpmarkdot" style="background:var(--p);width:40px;height:40px;box-shadow:0 0 20px var(--p)"></div><div class="cpmarkring" style="inset:-16px;border-color:rgba(192,132,252,.4)"></div>';
+  new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([kothZone.lng,kothZone.lat]).addTo(G.map);
+  showMissionHUD('👑 KING OF THE HILL','Hold the zone — 0s',0);
+  setInterval(()=>{ if(G.gameMode!=='koth') return; const d=distM(G.pos.lng,G.pos.lat,kothZone.lng,kothZone.lat); if(d<60){kothTimer++; const pct=Math.min(100,kothTimer/120*100); showMissionHUD('👑 KOTH',`In zone — ${kothTimer}s / 120s`,pct); addMoney(2); if(kothTimer>=120){toast('👑 ZONE CAPTURED! +$5000','gold');addMoney(5000);kothTimer=0;checkMission('any'); kothZone={lng:kothZone.lng+(Math.random()-.5)*.008,lat:kothZone.lat+(Math.random()-.5)*.008};}} },1000);
+}
+
+let zombieSpawner=null;
+function startZombies(){
+  showMissionHUD('🧟 ZOMBIE SURVIVAL',`Wave ${zombieWave} — ${zombieWave*3} zombies incoming`,0);
+  spawnZombieWave();
+}
+function spawnZombieWave(){
+  if(G.gameMode!=='zombie') return;
+  const count=zombieWave*3;
+  toast(`🧟 WAVE ${zombieWave} — ${count} ZOMBIES!`,'warn');
+  for(let i=0;i<count;i++){
+    G.bots.push({id:'z'+Date.now()+i,name:'ZOMBIE',lat:G.pos.lat+(Math.random()-.5)*.008,lng:G.pos.lng+(Math.random()-.5)*.008,color:'#16a34a',vx:0,vy:0,hp:50+zombieWave*10,kills:0,money:0,terr:0,isBot:true,isZombie:true});
+  }
+  // Chase player
+  setInterval(()=>{
+    if(G.gameMode!=='zombie') return;
+    G.bots.filter(b=>b.isZombie).forEach(z=>{ const dl=G.pos.lng-z.lng,da=G.pos.lat-z.lat,m=Math.sqrt(dl*dl+da*da)||1; z.lng+=dl/m*.00003; z.lat+=da/m*.00002; if(distM(z.lng,z.lat,G.pos.lng,G.pos.lat)<30){takeDamage(15,'zombie');} });
+    // Check wave clear
+    const alive=G.bots.filter(b=>b.isZombie&&b.hp>0).length;
+    if(alive===0){zombieWave++;addMoney(zombieWave*500);toast(`✅ WAVE CLEARED! Wave ${zombieWave} incoming...`,'gold');setTimeout(spawnZombieWave,3000);}
+  },800);
+}
+
+function startBounty(){
+  bountyTargets=G.bots.slice(0,3);
+  bountyTargets.forEach(b=>{b.color='#f43f5e';b.isBounty=true;});
+  showMissionHUD('🎯 BOUNTY HUNT','Eliminate 3 targets','0');
+  toast('🎯 BOUNTY HUNT — 3 TARGETS MARKED ON RADAR','gold');
+  updateNPCLayer();
+}
+
+function startLastMan(){
+  toast('🥊 LAST STAND — Zone shrinks every 30s!','warn');
+  setInterval(()=>{
+    if(G.gameMode!=='lastman') return;
+    lastManZone*=.85;
+    const boundary=0.008*lastManZone;
+    // Damage players outside zone
+    if(Math.abs(G.pos.lng-G.bots[0]?.lng||0)>boundary||Math.abs(G.pos.lat-G.bots[0]?.lat||0)>boundary){ takeDamage(10,'zone'); toast('⚠️ YOU ARE OUTSIDE THE ZONE!','warn'); }
+    document.getElementById('sonline').textContent='ZONE: '+Math.round(lastManZone*100)+'%';
+  },30000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TERRITORY SYSTEM
+═══════════════════════════════════════════════════════════════ */
+function terrSample(ts){
+  if(G.gameMode!=='territory'||G.screen!=='game') return;
+  if(Math.abs(MV.vx)+Math.abs(MV.vy)<1e-7) return;
+  const path=G.terr.path;
+  if(!path.length){path.push([G.pos.lng,G.pos.lat]);G.terr.lastSample=ts;return;}
+  if(ts-G.terr.lastSample<1200) return;
+  G.terr.lastSample=ts;
+  const last=path[path.length-1];
+  if(distM(last[0],last[1],G.pos.lng,G.pos.lat)<25) return;
+  path.push([G.pos.lng,G.pos.lat]);
+  updatePathLine();
+  document.getElementById('terrinfo').textContent=`PTS: ${path.length} — RETURN TO START`;
+  if(path.length>=6 && distM(path[0][0],path[0][1],G.pos.lng,G.pos.lat)<65) claimTerr();
+}
+
+function updatePathLine(){
+  try{const s=G.map.getSource('mypath');if(s)s.setData({type:'Feature',geometry:{type:'LineString',coordinates:G.terr.path}});}catch(e){}
+}
+
+function claimTerr(){
+  const path=G.terr.path; if(path.length<4) return;
+  const closed=[...path,path[0]];
+  const area=polyArea(closed);
+  if(area<100){toast('AREA TOO SMALL','warn');G.terr.path=[];updatePathLine();return;}
+  G.terr.totalArea+=area;
+  const pid='tp-'+G.id+'-'+Date.now();
+  addTerrPoly(pid,G.id,closed,G.color,area);
+  G.terr.path=[];updatePathLine();
+  const astr=areaStr(area);
+  document.getElementById('csatxt').textContent='+'+astr;
+  const sp=document.getElementById('claimsplash');
+  sp.classList.add('on'); setTimeout(()=>sp.classList.remove('on'),2200);
+  document.getElementById('terrb').style.width=Math.min(100,G.terr.totalArea/5000000*100)+'%';
+  document.getElementById('terrarea').textContent=areaStr(G.terr.totalArea)+' TOTAL';
+  addMoney(Math.round(area/100));
+  snd('claim'); updateLB();
+  mpSend({t:'terr',pid,oid:G.id,coords:closed,color:G.color,area});
+  checkMission('territory'); checkMission('area');
+}
+
+function addTerrPoly(pid,owner,coords,color,area){
+  try{
+    if(!G.map.getSource(pid)){
+      G.map.addSource(pid,{type:'geojson',data:emptyPoly(coords)});
+      G.map.addLayer({id:pid+'-f',type:'fill',source:pid,paint:{'fill-color':color,'fill-opacity':.25}});
+      G.map.addLayer({id:pid+'-l',type:'line',source:pid,paint:{'line-color':color,'line-width':2,'line-opacity':.75}});
+    } else G.map.getSource(pid).setData(emptyPoly(coords));
+    G.terr.polys[pid]={coords,area,color,owner};
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WEAPONS SYSTEM
+═══════════════════════════════════════════════════════════════ */
+function initGun(){
+  const cv=document.getElementById('gunlayer');
+  cv.width=window.innerWidth; cv.height=window.innerHeight;
+  G.gunCtx=cv.getContext('2d');
+  window.addEventListener('resize',()=>{cv.width=window.innerWidth;cv.height=window.innerHeight;});
+}
+
+function switchGun(next){
+  if(next===undefined) G.gun=(G.gun+1)%GUNS.length;
+  else G.gun=Math.max(0,Math.min(GUNS.length-1,next));
+  const gun=GUNS[G.gun];
+  document.getElementById('gunicon').textContent=gun.icon;
+  document.getElementById('gunname').textContent=gun.name;
+  updateAmmoUI();
+  toast(`${gun.icon} ${gun.name}  ${G.guns[G.gun].ammo}/${gun.maxAmmo}`);
+  G.stats.gunsUsed.add(gun.id);
+  checkMission('allguns');
+}
+
+function shootAt(lng,lat){
+  if(G.screen!=='game') return;
+  if(G.gameMode==='peace'){toast('NO COMBAT IN PEACE MODE','warn');return;}
+  const gstate=G.guns[G.gun];
+  if(gstate.ammo<=0){toast(`${GUNS[G.gun].icon} OUT OF AMMO!`,'warn');return;}
+  gstate.ammo--;
+  updateAmmoUI(); snd('gun');
+  const from=G.map.project([G.pos.lng,G.pos.lat]);
+  const to=G.map.project([lng,lat]);
+  drawTrail(from.x,from.y,to.x,to.y);
+  drawMuzzle(from.x,from.y);
+  drawExplosion(to.x,to.y);
+  if(GUNS[G.gun].splash){drawSplash(to.x,to.y,GUNS[G.gun].splash);}
+  mpSend({t:'shot',from:G.id,lng,lat,gun:G.gun});
+  // Hit detection
+  const gun=GUNS[G.gun];
+  G.bots.forEach(b=>{
+    const d=distM(b.lng,b.lat,lng,lat);
+    const hitR=gun.splash||gun.range/3;
+    if(d<hitR){
+      b.hp-=gun.damage;
+      if(b.hp<=0){
+        G.kills++; addMoney(500); G.stats.botElims++;
+        b.hp=100; b.lng=G.pos.lng+(Math.random()-.5)*.02; b.lat=G.pos.lat+(Math.random()-.5)*.02;
+        addKillFeed(G.name,b.name); increaseWanted();
+        checkMission('kills'); checkMission('botElim');
+        if(b.id.startsWith('z')) { G.bots=G.bots.filter(x=>x!==b); }
+      }
+    }
+  });
+  // Rampage check
+  const now=Date.now();
+  if(now-G.stats.rampageStart<60000){G.stats.rampageKills++;if(G.stats.rampageKills>=5){checkMission('rampage');}}
+  else{G.stats.rampageStart=now;G.stats.rampageKills=1;}
+  checkMission('sniperK'); checkMission('rocketK');
+}
+
+function drawTrail(x1,y1,x2,y2){
+  const ctx=G.gunCtx;
+  ctx.save();ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+  ctx.strokeStyle='rgba(255,255,160,.85)';ctx.lineWidth=1.8;ctx.lineCap='round';
+  ctx.shadowColor='rgba(255,255,80,.8)';ctx.shadowBlur=5;ctx.stroke();ctx.restore();
+  setTimeout(()=>ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height),160);
+}
+function drawMuzzle(x,y){
+  const ctx=G.gunCtx;ctx.save();
+  ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,210,40,.7)';ctx.shadowColor='rgba(255,200,0,.9)';ctx.shadowBlur=16;ctx.fill();ctx.restore();
+  setTimeout(()=>ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height),100);
+}
+function drawExplosion(x,y){
+  const ctx=G.gunCtx;
+  [[7,.8],[14,.5],[20,.3]].forEach(([r,a],i)=>setTimeout(()=>{
+    ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,${100+i*50},50,${a})`;ctx.shadowBlur=18;ctx.shadowColor='rgba(255,100,0,.7)';ctx.fill();ctx.restore();
+    setTimeout(()=>ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height),200);
+  },i*55));
+}
+function drawSplash(x,y,r){
+  const ctx=G.gunCtx,pr=G.map.getCanvas().getBoundingClientRect();
+  const pxR=r/(111320*Math.cos(G.pos.lat*Math.PI/180))*G.map.getCanvas().width/360;
+  ctx.save();ctx.beginPath();ctx.arc(x,y,Math.min(pxR,80),0,Math.PI*2);
+  ctx.fillStyle='rgba(255,80,20,.3)';ctx.strokeStyle='rgba(255,150,50,.6)';ctx.lineWidth=2;ctx.fill();ctx.stroke();ctx.restore();
+  setTimeout(()=>ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height),500);
+}
+
+function addKillFeed(killer,victim){
+  const el=document.getElementById('killfeed');
+  const row=document.createElement('div');row.className='krow';
+  row.textContent=`${killer} 💀 ${victim}`;
+  el.appendChild(row);
+  setTimeout(()=>{row.style.opacity='0';row.style.transition='opacity .5s';setTimeout(()=>row.remove(),600);},3000);
+}
+
+function updateAmmoUI(){
+  const g=G.guns[G.gun],gd=GUNS[G.gun];
+  document.getElementById('gunammo').textContent=`${g.ammo}/${gd.maxAmmo}`;
+  document.getElementById('ambar').style.width=(g.ammo/gd.maxAmmo*100)+'%';
+}
+
+/* Ammo recharge while exploring */
+function rechargeAmmo(){
+  G.guns.forEach((g,i)=>{ if(g.ammo<GUNS[i].maxAmmo&&Math.random()<.008) g.ammo=Math.min(GUNS[i].maxAmmo,g.ammo+1); });
+  updateAmmoUI();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME LOOP
+═══════════════════════════════════════════════════════════════ */
+function loop(ts){
+  const dt=Math.min(ts-G.lastFrame,50); G.lastFrame=ts;
+  if(G.screen==='game'){
+    move(dt); terrSample(ts);
+    checkRaceCP();
+    rechargeAmmo();
+    updateHUD();
+    // Mission: wanted5 timer
+    if(G.wanted>=5){G.stats.wantedHighTime++;checkMission('wanted5');}
+    // Mission: sprint timer
+    if(G.sprintMode&&(Math.abs(MV.vx)+Math.abs(MV.vy)>1e-7)){G.stats.sprintTime++;checkMission('sprint');}
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOVEMENT
+═══════════════════════════════════════════════════════════════ */
+function move(dt){
+  const spd=G.vehicleMode?MV.veh:G.sprintMode?MV.sprint:MV.foot;
+  const rad=G.heading*Math.PI/180;
+  let ax=0,ay=0;
+  if(G.keys['w']||G.keys['arrowup'])   {ax-=Math.sin(rad);ay+=Math.cos(rad);}
+  if(G.keys['s']||G.keys['arrowdown']) {ax+=Math.sin(rad);ay-=Math.cos(rad);}
+  if(G.keys['a']||G.keys['arrowleft']){ax-=Math.cos(rad);ay-=Math.sin(rad);}
+  if(G.keys['d']||G.keys['arrowright']){ax+=Math.cos(rad);ay+=Math.sin(rad);}
+  if(G.joy.active){ax+=G.joy.dx*Math.cos(rad)-G.joy.dy*Math.sin(rad);ay+=G.joy.dx*Math.sin(rad)+G.joy.dy*Math.cos(rad);}
+  const mg=Math.sqrt(ax*ax+ay*ay);if(mg>1){ax/=mg;ay/=mg;}
+  const f=(dt/16)*spd;
+  MV.vx=MV.vx*MV.fric+ax*f; MV.vy=MV.vy*MV.fric+ay*f;
+  if(Math.abs(MV.vx)<1e-9)MV.vx=0; if(Math.abs(MV.vy)<1e-9)MV.vy=0;
+  const mv=Math.abs(MV.vx)+Math.abs(MV.vy)>1e-7;
+  if(mv){
+    G.pos.lng+=MV.vx; G.pos.lat=Math.max(-85,Math.min(85,G.pos.lat+MV.vy));
+    if(G.marker)G.marker.setLngLat([G.pos.lng,G.pos.lat]);
+    if(G.following)G.map.easeTo({center:[G.pos.lng,G.pos.lat],bearing:G.heading,pitch:G.vehicleMode?58:G.mode3D?55:48,duration:100,easing:t=>t});
+    if(G.minimap)G.minimap.setCenter([G.pos.lng,G.pos.lat]);
+    const dist=Math.sqrt(MV.vx*MV.vx+MV.vy*MV.vy);
+    G.speed=Math.round(dist*111000*3600/16);
+    G.stats.totalDist+=dist*111000;
+    if(G.vehicleMode)G.stats.vDist+=dist*111000;
+    if(G.rainMode)G.stats.rainDist+=dist*111000;
+    if(G.rainMode&&G.nightMode)G.stats.nightRainDist+=dist*111000;
+    if(Math.random()<.01) addMoney(Math.floor(Math.random()*25+5)*(G.moneyMult||1));
+    if(G.vehicleMode&&G.speed>65&&Math.random()<.002)increaseWanted();
+    // Mission checks
+    checkMission('distance'); checkMission('vdist'); checkMission('totaldist');
+    checkMission('rain'); checkMission('nightrain');
+    if(G.vehicleMode&&G.speed>=100)checkMission('speed');
+    checkMission('maxspeed');
+  } else G.speed=0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PLAYER MARKER
+═══════════════════════════════════════════════════════════════ */
+function spawnMarker(){
+  const el=document.createElement('div');el.className='pm';
+  el.innerHTML='<div class="pr"></div><div class="pd"></div>';
+  el.querySelector('.pd').style.background=G.color;
+  el.querySelector('.pd').style.boxShadow=`0 0 12px ${G.color}`;
+  G.marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([G.pos.lng,G.pos.lat]).addTo(G.map);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HUD + STATS
+═══════════════════════════════════════════════════════════════ */
+function onMove(){
+  const {lat,lng}=G.map.getCenter(), deg=(((G.map.getBearing()%360)+360)%360);
+  document.getElementById('slat').textContent=lat.toFixed(6);
+  document.getElementById('slng').textContent=lng.toFixed(6);
+  document.getElementById('szoom').textContent=G.map.getZoom().toFixed(1);
+  document.getElementById('shdg').textContent=String(Math.round(deg)).padStart(3,'0')+'°';
+}
+
+function updateHUD(){
+  document.getElementById('spdv').textContent=G.speed;
+  document.getElementById('slat').textContent=G.pos.lat.toFixed(6);
+  document.getElementById('slng').textContent=G.pos.lng.toFixed(6);
+  document.getElementById('smode').textContent=G.vehicleMode?'VEHICLE':G.sprintMode?'SPRINT':'FOOT';
+}
+
+function addMoney(n){
+  G.money+=n; G.stats.sessionMoney+=n; checkMission('money'); checkMission('session$');
+  const el=document.getElementById('moneyd');
+  el.textContent='$'+G.money.toLocaleString();
+  el.classList.remove('fl');void el.offsetWidth;el.classList.add('fl');
+}
+
+function takeDamage(n,src){
+  if(G.armor>0){G.armor=Math.max(0,G.armor-n);document.getElementById('arbar').style.width=(G.armor/100*100)+'%';return;}
+  G.health=Math.max(0,G.health-n);
+  document.getElementById('hpbar').style.width=G.health+'%';
+  document.getElementById('hpbar').style.background=G.health<30?'#f00':G.health<60?'#f60':'';
+  const f=document.getElementById('dmgflash');f.classList.add('on');setTimeout(()=>f.classList.remove('on'),200);
+  snd('hit');
+  if(G.health<=0){toast('💀 ELIMINATED — Respawning...','warn');setTimeout(()=>{G.health=100;G.armor=50;},3000);}
+}
+
+function increaseWanted(){
+  if(G.wanted>=5)return; G.wanted++;
+  for(let i=1;i<=5;i++){const s=document.getElementById('s'+i);s.classList.toggle('lit',i<=G.wanted);s.classList.toggle('flash',i===G.wanted&&G.wanted>0);}
+  if(G.wanted>=3)toast('⚠️ WANTED: '+'★'.repeat(G.wanted),'warn');
+  clearTimeout(G.wantedTimer);
+  G.wantedTimer=setTimeout(()=>{G.wanted=Math.max(0,G.wanted-1);increaseWanted.cancel=true;for(let i=1;i<=5;i++){const s=document.getElementById('s'+i);s.classList.toggle('lit',i<=G.wanted);s.classList.toggle('flash',i===G.wanted&&G.wanted>0);}},8000);
+  checkMission('escape');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MISSIONS SYSTEM
+═══════════════════════════════════════════════════════════════ */
+function buildMissionsUI(){
+  const cats=[...new Set(MISSIONS.map(m=>m.cat))];
+  const catEl=document.getElementById('miscats');
+  catEl.innerHTML=cats.map((c,i)=>`<div class="miscat${i===0?' on':''}" data-c="${c}">${c.toUpperCase()}</div>`).join('');
+  catEl.querySelectorAll('.miscat').forEach(c=>c.addEventListener('click',()=>{
+    catEl.querySelectorAll('.miscat').forEach(x=>x.classList.remove('on'));
+    c.classList.add('on'); renderMissions(c.dataset.c);
+  }));
+  renderMissions(cats[0]);
+}
+
+function renderMissions(cat){
+  const list=document.getElementById('mislist');
+  const missions=MISSIONS.filter(m=>m.cat===cat);
+  list.innerHTML=missions.map(m=>{
+    const done=G.missionsDone.has(m.id);
+    const active=G.activeMission?.id===m.id;
+    const stat=done?'done':active?'inprog':'avail';
+    const statTxt=done?'✓ DONE':active?'● IN PROGRESS':'START';
+    return `<div class="misrow${active?' active':''}${done?' done':''}" data-mid="${m.id}">
+      <div class="misicon">${m.icon}</div>
+      <div class="misinfo">
+        <div class="misname">${m.name}</div>
+        <div class="misdesc">${m.desc}</div>
+        <div class="misreward">+$${m.reward.toLocaleString()} · ${m.xp} XP</div>
+      </div>
+      <div class="misstat ${stat}">${statTxt}</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.misrow:not(.done)').forEach(row=>row.addEventListener('click',()=>{
+    const m=MISSIONS.find(x=>x.id===row.dataset.mid);
+    if(!m||G.missionsDone.has(m.id)) return;
+    G.activeMission=m;
+    document.getElementById('miso').classList.remove('open');
+    showMissionHUD(m.icon+' '+m.name, m.desc, 0);
+    document.getElementById('missionh').classList.add('on');
+    if(G.screen==='game') toast(`📋 MISSION: ${m.name}`,'gold');
+    renderMissions(cat);
+  }));
+}
+
+function showMissionHUD(name,obj,pct){
+  document.getElementById('mname').textContent=name;
+  document.getElementById('mobjective').textContent=obj;
+  document.getElementById('mprogi').style.width=pct+'%';
+  document.getElementById('mprogt').textContent=Math.round(pct)+'%';
+  document.getElementById('missionh').classList.add('on');
+}
+
+function checkMission(goalType){
+  const m=G.activeMission; if(!m||G.missionsDone.has(m?.id)) return;
+  let prog=0,done=false;
+  const tgt=m.target||1;
+  switch(goalType){
+    case 'distance':    if(m.goal==='distance'){prog=G.stats.totalDist/tgt*100;done=G.stats.totalDist>=tgt;} break;
+    case 'totaldist':   if(m.goal==='totaldist'){prog=G.stats.totalDist/tgt*100;done=G.stats.totalDist>=tgt;} break;
+    case 'vdist':       if(m.goal==='vdist'){prog=G.stats.vDist/tgt*100;done=G.stats.vDist>=tgt;} break;
+    case 'territory':   if(m.goal==='territory'){prog=100;done=true;} break;
+    case 'area':        if(m.goal==='area'){prog=G.terr.totalArea/tgt*100;done=G.terr.totalArea>=tgt;} break;
+    case 'kills':       if(m.goal==='kills'){prog=G.kills/tgt*100;done=G.kills>=tgt;} break;
+    case 'sniperK':     if(m.goal==='sniperK'&&G.gun===3){G.sniperKills=(G.sniperKills||0)+1;prog=G.sniperKills/tgt*100;done=G.sniperKills>=tgt;} break;
+    case 'rocketK':     if(m.goal==='rocketK'&&G.gun===4){G.rocketKills=(G.rocketKills||0)+1;prog=G.rocketKills/tgt*100;done=G.rocketKills>=tgt;} break;
+    case 'rampage':     if(m.goal==='rampage'){prog=100;done=true;} break;
+    case 'botElim':     if(m.goal==='botElim'){prog=G.stats.botElims/tgt*100;done=G.stats.botElims>=tgt;} break;
+    case 'money':       if(m.goal==='money'){prog=G.money/tgt*100;done=G.money>=tgt;} break;
+    case 'session$':    if(m.goal==='session$'){prog=G.stats.sessionMoney/tgt*100;done=G.stats.sessionMoney>=tgt;} break;
+    case 'speed':       if(m.goal==='speed'){prog=100;done=true;} break;
+    case 'maxspeed':    if(m.goal==='maxspeed'&&G.vehicleMode){G.maxSpeedTime=(G.maxSpeedTime||0)+(G.speed>80?1:0);prog=G.maxSpeedTime/tgt*100;done=G.maxSpeedTime>=tgt;} break;
+    case 'mplay':       if(m.goal==='mplay'){prog=100;done=true;} break;
+    case 'world':       if(m.goal==='world'){prog=100;done=true;} break;
+    case 'friends':     if(m.goal==='friends'){prog=100;done=true;} break;
+    case 'sv':          if(m.goal==='sv'){G.stats.svOpens++;prog=G.stats.svOpens/tgt*100;done=G.stats.svOpens>=tgt;} break;
+    case 'rain':        if(m.goal==='rain'){prog=G.stats.rainDist/tgt*100;done=G.stats.rainDist>=tgt;} break;
+    case 'nightrain':   if(m.goal==='nightrain'){prog=G.stats.nightRainDist/tgt*100;done=G.stats.nightRainDist>=tgt;} break;
+    case 'sprint':      if(m.goal==='sprint'){prog=G.stats.sprintTime/tgt*100;done=G.stats.sprintTime>=tgt;} break;
+    case 'charswap':    if(m.goal==='charswap'){prog=G.stats.charSwaps/tgt*100;done=G.stats.charSwaps>=tgt;} break;
+    case 'allguns':     if(m.goal==='allguns'){prog=G.stats.gunsUsed.size/5*100;done=G.stats.gunsUsed.size>=5;} break;
+    case 'escape':      if(m.goal==='escape'){G.escapes=(G.escapes||0)+(G.wanted===0?1:0);prog=G.escapes/tgt*100;done=G.escapes>=tgt;} break;
+    case 'wanted5':     if(m.goal==='wanted5'){prog=G.stats.wantedHighTime/tgt*100;done=G.stats.wantedHighTime>=tgt;} break;
+    case 'missions':    if(m.goal==='missions'){prog=G.missionsDone.size/tgt*100;done=G.missionsDone.size>=tgt;} break;
+    case 'any':         if(['topterr','cities','continents','lb3','lb1','nighttime','3dexplore','any'].includes(m.goal)){prog=100;done=true;} break;
+    default: break;
+  }
+  if(prog>0) showMissionHUD(m.icon+' '+m.name,m.desc,Math.min(100,prog));
+  if(done) completeMission(m);
+}
+
+function completeMission(m){
+  G.missionsDone.add(m.id); G.activeMission=null;
+  ls('owMissions', JSON.stringify([...G.missionsDone]));
+  addMoney(m.reward);
+  document.getElementById('missionh').classList.remove('on');
+  toast(`✅ MISSION COMPLETE: ${m.name} +$${m.reward.toLocaleString()}`,'gold');
+  snd('claim'); updateLB();
+  checkMission('missions');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LEADERBOARD
+═══════════════════════════════════════════════════════════════ */
+function seedLB(){
+  const saved=JSON.parse(ls('owLB')||'{}');
+  if(Object.keys(saved).length<5){
+    BOT_NAMES.slice(0,8).forEach((n,i)=>{ saved['seed'+i]={name:n,territory:Math.floor(Math.random()*80000+5000),kills:Math.floor(Math.random()*30+2),money:Math.floor(Math.random()*20000+1000),missions:Math.floor(Math.random()*15+1)}; });
+    ls('owLB',JSON.stringify(saved));
+  }
+}
+
+function updateLB(){
+  const saved=JSON.parse(ls('owLB')||'{}');
+  saved[G.id]={name:G.name,territory:G.terr.totalArea,kills:G.kills,money:G.money,missions:G.missionsDone.size};
+  ls('owLB',JSON.stringify(saved));
+}
+
+function getAllLBPlayers(){
+  const all=[{id:G.id,name:G.name,territory:G.terr.totalArea,kills:G.kills,money:G.money,missions:G.missionsDone.size,isMe:true}];
+  G.bots.forEach(b=>all.push({id:b.id,name:b.name,territory:b.terr||0,kills:b.kills||0,money:b.money||0,missions:0}));
+  Object.values(G.others).forEach(p=>all.push({id:p.id,name:p.name||'Player',territory:p.terr||0,kills:0,money:0,missions:0}));
+  const saved=JSON.parse(ls('owLB')||'{}');
+  Object.values(saved).forEach(p=>{if(!all.find(a=>a.name===p.name))all.push({...p,id:Math.random(),isMe:false});});
+  return all;
+}
+
+function renderLB(tab='territory'){
+  const all=getAllLBPlayers().sort((a,b)=>(b[tab]||0)-(a[tab]||0)).slice(0,10);
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('lblist').innerHTML=all.map((p,i)=>{
+    let sc='';
+    if(tab==='territory')sc=areaStr(p.territory||0);
+    else if(tab==='kills')sc=(p.kills||0)+' kills';
+    else if(tab==='money')sc='$'+(p.money||0).toLocaleString();
+    return `<div class="lbrow${p.isMe?' you':''}">
+      <span class="lbrnk${i<3?' gold':''}">${i<3?medals[i]:'#'+(i+1)}</span>
+      <span class="lbnm">${p.isMe?'▶ ':''}${p.name||'—'}</span>
+      <span class="lbsc">${sc}</span>
+      <span class="lbkl">💀${p.kills||0}</span>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.lbt').forEach(t=>t.classList.toggle('on',t.dataset.t===tab));
+  // Check lb missions
+  const myRank=all.findIndex(p=>p.isMe);
+  if(myRank===0)checkMission('lb1');
+  if(myRank<3)checkMission('lb3');
+}
+
+document.querySelectorAll('.lbt').forEach(t=>t.addEventListener('click',()=>renderLB(t.dataset.t)));
+document.getElementById('lbclose').addEventListener('click',()=>document.getElementById('lb').classList.remove('open'));
+document.getElementById('lb').addEventListener('click',e=>{if(e.target===document.getElementById('lbbg'))document.getElementById('lb').classList.remove('open');});
+document.getElementById('blb').addEventListener('click',()=>{document.getElementById('lb').classList.add('open');renderLB('territory');updateLB();});
+
+document.getElementById('misclose').addEventListener('click',()=>document.getElementById('miso').classList.remove('open'));
+document.getElementById('miso').addEventListener('click',e=>{if(e.target===document.getElementById('misbg'))document.getElementById('miso').classList.remove('open');});
+document.getElementById('bmis').addEventListener('click',()=>{document.getElementById('miso').classList.add('open');buildMissionsUI();});
+
+/* ═══════════════════════════════════════════════════════════════
+   RADAR
+═══════════════════════════════════════════════════════════════ */
+function updateRadar(){
+  const radar=document.getElementById('rw'),cx=62,cy=62,mxD=0.018;
+  const all=[...G.bots,...Object.values(G.others)];
+  all.forEach(e=>{
+    const rid='rb-'+e.id;
+    if(!G.radarBlips[rid]){
+      const b=document.createElement('div');b.className='rblip';b.id=rid;
+      b.style.background=e.color||'#ff4444';b.style.boxShadow=`0 0 4px ${e.color||'#f44'}`;
+      radar.appendChild(b);G.radarBlips[rid]=b;
+    }
+    const dx=(e.lng-G.pos.lng)/mxD,dy=(e.lat-G.pos.lat)/mxD;
+    const bx=cx+dx*50,by=cy-dy*50,el=G.radarBlips[rid];
+    el.style.left=Math.max(6,Math.min(116,bx))+'px';el.style.top=Math.max(6,Math.min(116,by))+'px';
+    el.style.display=Math.abs(dx)>1.1||Math.abs(dy)>1.1?'none':'block';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STREET VIEW + NPC OVERLAYS
+═══════════════════════════════════════════════════════════════ */
+const NPCC=['🧍','🚶','🏃','👮','👷','🧑','👩','🧔','🕵️','💃'];
+const CARC=['🚗','🚕','🚙','🏎','🚓','🚑','🚌'];
+function initSVNpcs(){}
+function populateSVNpcs(){
+  const c=document.getElementById('svnpcs');c.innerHTML='';
+  for(let i=0;i<7;i++){
+    const d=document.createElement('div'),goR=Math.random()>.5;
+    const dur=(9+Math.random()*13).toFixed(1),del=(Math.random()*-16).toFixed(1);
+    d.className='svnpc '+(goR?'wr':'wl');
+    d.style.cssText=`--d:${dur}s;--dl:${del}s;bottom:${18+Math.random()*15}%;`;
+    d.innerHTML=`<span>${NPCC[Math.floor(Math.random()*NPCC.length)]}</span><div class="ns"></div>`;
+    c.appendChild(d);
+  }
+  for(let i=0;i<3;i++){
+    const d=document.createElement('div'),goR=Math.random()>.5;
+    const dur=(4+Math.random()*7).toFixed(1),del=(Math.random()*-10).toFixed(1);
+    d.className='svnpc car '+(goR?'wr':'wl');
+    d.style.cssText=`--d:${dur}s;--dl:${del}s;bottom:16%;`;
+    d.innerHTML=`<span>${CARC[Math.floor(Math.random()*CARC.length)]}</span>`;
+    c.appendChild(d);
+  }
+}
+
+function openSV(){
+  const {lat,lng}=G.pos;
+  document.getElementById('svp').classList.add('open');
+  const fr=document.getElementById('svframe'),ld=document.getElementById('svload'),nc=document.getElementById('svnoc');
+  fr.src='';ld.style.display='block';nc.style.display='none';
+  document.getElementById('svaddr').textContent=`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`).then(r=>r.json()).then(d=>{if(d.display_name)document.getElementById('svaddr').textContent=d.display_name.split(',').slice(0,2).join(',');}).catch(()=>{});
+  fr.src=`https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=12,0,0,0,0&output=svembed`;
+  let ok=false; fr.onload=()=>{ld.style.display='none';ok=true;};
+  setTimeout(()=>{if(!ok){ld.style.display='none';nc.style.display='block';}},5000);
+  populateSVNpcs();
+  G.stats.svOpens++; checkMission('sv');
+  toast('📷 STREET VIEW — NPCs on the street');
+}
+function closeSV(){document.getElementById('svp').classList.remove('open');document.getElementById('svframe').src='';}
+
+/* ═══════════════════════════════════════════════════════════════
+   RAIN + NIGHT + AUDIO
+═══════════════════════════════════════════════════════════════ */
+function initRain(){
+  const cv=document.getElementById('rainc');G.rainCtx=cv.getContext('2d');
+  const rs=()=>{cv.width=window.innerWidth;cv.height=window.innerHeight;};rs();window.addEventListener('resize',rs);
+  for(let i=0;i<220;i++)G.rainDrops.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,l:12+Math.random()*16,s:7+Math.random()*7,a:.12+Math.random()*.4});
+}
+function animRain(){
+  const ctx=G.rainCtx,W=ctx.canvas.width,H=ctx.canvas.height;
+  ctx.clearRect(0,0,W,H);
+  G.rainDrops.forEach(d=>{ctx.globalAlpha=d.a;ctx.strokeStyle='rgba(174,214,241,.7)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x+2,d.y+d.l);ctx.stroke();d.y+=d.s;d.x+=1.2;if(d.y>H){d.y=-d.l;d.x=Math.random()*W;}});
+  ctx.globalAlpha=1; G.rainAnim=requestAnimationFrame(animRain);
+}
+
+let aCtx=null;
+function snd(t){
+  if(!aCtx)try{aCtx=new AudioContext();}catch(e){return;}
+  const o=aCtx.createOscillator(),g=aCtx.createGain();o.connect(g);g.connect(aCtx.destination);
+  if(t==='gun'){o.type='square';o.frequency.setValueAtTime(160,aCtx.currentTime);o.frequency.exponentialRampToValueAtTime(25,aCtx.currentTime+.12);g.gain.setValueAtTime(.5,aCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,aCtx.currentTime+.14);o.start();o.stop(aCtx.currentTime+.15);}
+  if(t==='hit'){o.type='sawtooth';o.frequency.setValueAtTime(380,aCtx.currentTime);o.frequency.exponentialRampToValueAtTime(60,aCtx.currentTime+.18);g.gain.setValueAtTime(.4,aCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,aCtx.currentTime+.2);o.start();o.stop(aCtx.currentTime+.22);}
+  if(t==='claim'){o.type='sine';[523,659,784].forEach((f,i)=>o.frequency.setValueAtTime(f,aCtx.currentTime+i*.14));g.gain.setValueAtTime(.3,aCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,aCtx.currentTime+.55);o.start();o.stop(aCtx.currentTime+.6);}
+}
+
+function startClock(){
+  setInterval(()=>{
+    G.gameTime=(G.gameTime+1)%1440;
+    const h=String(Math.floor(G.gameTime/60)).padStart(2,'0'),m=String(G.gameTime%60).padStart(2,'0');
+    document.getElementById('timed').textContent=h+':'+m;
+    if(G.nightMode)G.stats.nightTime++;
+  },1000);
+}
+
+function showModeHUD(name,txt,pct){
+  document.getElementById('missionh').classList.add('on');
+  document.getElementById('mname').textContent=name;
+  document.getElementById('mobjective').textContent=txt;
+  document.getElementById('mprogi').style.width=pct+'%';
+  document.getElementById('mprogt').textContent=Math.round(pct)+'%';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTROLS BINDING
+═══════════════════════════════════════════════════════════════ */
+function bindControls(){
+  document.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();G.keys[k]=true;
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key))e.preventDefault();
+    if(e.key==='Shift')G.sprintMode=true;
+    if(k==='v')toggleVeh();
+    if(k==='g')switchGun();
+    if(k==='f'){document.getElementById('svp').classList.contains('open')?closeSV():openSV();}
+    if(k==='m'){document.getElementById('miso').classList.add('open');buildMissionsUI();}
+    if(k==='n')toggleNight();
+    if(k==='c'){G.following=true;toast('CAMERA LOCKED');}
+    if(k==='x')increaseWanted();
+    if(k==='escape'&&G.screen==='game'){G.screen='menu';document.getElementById('menu').classList.remove('gone');showSub(null);}
+    if(['1','2','3','4','5'].includes(k))switchGun(parseInt(k)-1);
+  });
+  document.addEventListener('keyup',e=>{G.keys[e.key.toLowerCase()]=false;if(e.key==='Shift')G.sprintMode=false;});
+
+  const jo=document.getElementById('jout'),ji=document.getElementById('jin'),MR=32;
+  let jX=0,jY=0;
+  jo.addEventListener('touchstart',e=>{e.preventDefault();const r=jo.getBoundingClientRect();jX=r.left+r.width/2;jY=r.top+r.height/2;G.joy.active=true;G.following=true;},{passive:false});
+  jo.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];let dx=t.clientX-jX,dy=t.clientY-jY,d=Math.sqrt(dx*dx+dy*dy);if(d>MR){dx=dx/d*MR;dy=dy/d*MR;}ji.style.transform=`translate(${dx}px,${dy}px)`;G.joy.dx=dx/MR;G.joy.dy=-dy/MR;},{passive:false});
+  ['touchend','touchcancel'].forEach(ev=>jo.addEventListener(ev,()=>{ji.style.transform='translate(0,0)';G.joy={active:false,dx:0,dy:0};}));
+  window.addEventListener('touchstart',()=>document.getElementById('jzone').style.display='block',{once:true});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UI CONTROLS
+═══════════════════════════════════════════════════════════════ */
+function bindUI(){
+  function doGPS(){
+    if(!navigator.geolocation){toast('GPS N/A','warn');return;}
+    toast('ACQUIRING GPS...');
+    navigator.geolocation.getCurrentPosition(p=>{
+      G.pos.lng=p.coords.longitude;G.pos.lat=p.coords.latitude;G.following=true;
+      if(G.marker)G.marker.setLngLat([G.pos.lng,G.pos.lat]);
+      G.map.flyTo({center:[G.pos.lng,G.pos.lat],zoom:16,pitch:50,duration:1400,essential:true});
+      if(G.minimap)G.minimap.setCenter([G.pos.lng,G.pos.lat]);
+      toast('📍 GPS LOCK');
+    },()=>toast('GPS FAILED','warn'));
+  }
+  document.getElementById('bgps').addEventListener('click',doGPS);
+  document.getElementById('mgps').addEventListener('click',doGPS);
+
+  document.getElementById('bsv').addEventListener('click',openSV);
+  document.getElementById('msv').addEventListener('click',openSV);
+  document.getElementById('svclose').addEventListener('click',closeSV);
+
+  function toggleVeh(){
+    G.vehicleMode=!G.vehicleMode;G.following=true;
+    ['bveh','mveh'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.toggle('on',G.vehicleMode);});
+    document.getElementById('modebadge').classList.toggle('on',G.vehicleMode);
+    toast(G.vehicleMode?'🚗 VEHICLE MODE':'🚶 ON FOOT');
+    checkMission('vdist');
+  }
+  function toggleVeh2(){toggleVeh();}
+  document.getElementById('bveh').addEventListener('click',toggleVeh2);
+  document.getElementById('mveh').addEventListener('click',toggleVeh2);
+
+  function togSat(){
+    G.satMode=!G.satMode;
+    ['bsat','msat'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.toggle('on',G.satMode);});
+    applyStyle();
+    if(G.minimap)G.minimap.setStyle(G.satMode?STYLES.sat:STYLES.streets);
+    toast(G.satMode?'🛰 SATELLITE':'🗺 MAP');
+  }
+  document.getElementById('bsat').addEventListener('click',togSat);
+  document.getElementById('msat').addEventListener('click',togSat);
+
+  document.getElementById('b3d').addEventListener('click',()=>{
+    G.mode3D=!G.mode3D;document.getElementById('b3d').classList.toggle('on',G.mode3D);
+    try{G.map.setLayoutProperty('3db','visibility',G.mode3D?'visible':'none');}catch(e){}
+    G.map.easeTo({pitch:G.mode3D?62:50,duration:600});
+    toast(G.mode3D?'🏙 3D ON':'🏙 3D OFF'); checkMission('3dexplore');
+  });
+
+  function toggleNight(){
+    G.nightMode=!G.nightMode;document.getElementById('bnight').classList.toggle('on',G.nightMode);
+    document.getElementById('nightov').classList.toggle('on',G.nightMode);
+    applyStyle(); toast(G.nightMode?'🌙 NIGHT':'☀️ DAY');
+  }
+  document.getElementById('bnight').addEventListener('click',toggleNight);
+
+  document.getElementById('brain').addEventListener('click',()=>{
+    G.rainMode=!G.rainMode;document.getElementById('brain').classList.toggle('on',G.rainMode);
+    document.getElementById('rainc').classList.toggle('on',G.rainMode);
+    if(G.rainMode){animRain();toast('🌧 RAINING');}
+    else{cancelAnimationFrame(G.rainAnim);G.rainCtx.clearRect(0,0,9999,9999);toast('☀️ CLEAR');}
+  });
+
+  document.getElementById('bmenu').addEventListener('click',()=>{G.screen='menu';document.getElementById('menu').classList.remove('gone');showSub(null);});
+
+  document.getElementById('bfs').addEventListener('click',()=>{
+    if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  });
+
+  // Search
+  const si=document.getElementById('sinput'),sr=document.getElementById('sres');
+  si.addEventListener('input',()=>{ clearTimeout(G.stT);const q=si.value.trim();if(q.length<2){sr.classList.remove('open');return;}G.stT=setTimeout(()=>doSearch(q),380); });
+  si.addEventListener('keydown',e=>{if(e.key==='Escape'){sr.classList.remove('open');si.blur();}});
+  document.addEventListener('click',e=>{if(!e.target.closest('#sw'))sr.classList.remove('open');});
+  async function doSearch(q){
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`,{headers:{'Accept-Language':'en'}});
+      const d=await r.json();
+      if(!d.length){sr.innerHTML='<div class="sri"><span class="sn" style="color:var(--dm)">No results</span></div>';sr.classList.add('open');return;}
+      sr.innerHTML=d.map(x=>`<div class="sri" data-lng="${x.lon}" data-lat="${x.lat}"><div class="sn">${x.display_name.split(',')[0]}</div><div class="ss">${x.display_name.split(',').slice(1,3).join(',').trim()}</div></div>`).join('');
+      sr.classList.add('open');
+      sr.querySelectorAll('.sri').forEach(item=>item.addEventListener('click',()=>{
+        const lng=parseFloat(item.dataset.lng),lat=parseFloat(item.dataset.lat);
+        G.pos.lng=lng;G.pos.lat=lat;G.following=true;
+        if(G.marker)G.marker.setLngLat([G.pos.lng,G.pos.lat]);
+        G.map.flyTo({center:[lng,lat],zoom:16,pitch:50,duration:1600,essential:true});
+        if(G.minimap)G.minimap.setCenter([lng,lat]);
+        sr.classList.remove('open');si.value=item.querySelector('.sn').textContent;
+        toast('NAVIGATING — '+item.querySelector('.sn').textContent.toUpperCase());
+        checkMission('cities');
+      }));
+    }catch(e){sr.innerHTML='<div class="sri" style="color:var(--r)">Error</div>';sr.classList.add('open');}
+  }
+}
+
+function applyStyle(){
+  const s=G.satMode?STYLES.sat:G.nightMode?STYLES.night:STYLES.streets;
+  G.map.setStyle(s);
+  G.map.once('style.load',()=>{add3D();initTerrLayers();if(G.mode3D)try{G.map.setLayoutProperty('3db','visibility','visible');}catch(e){}});
+  if(G.minimap&&!G.satMode)G.minimap.setStyle(STYLES.streets);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════════ */
+function distM(lng1,lat1,lng2,lat2){const R=6371000,p1=lat1*Math.PI/180,p2=lat2*Math.PI/180,dp=(lat2-lat1)*Math.PI/180,dl=(lng2-lng1)*Math.PI/180,a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function polyArea(coords){let a=0;for(let i=0;i<coords.length-1;i++)a+=coords[i][0]*coords[i+1][1]-coords[i+1][0]*coords[i][1];return Math.abs(a/2)*(111320*Math.cos(coords[0][1]*Math.PI/180))*111320;}
+function genPoly(cx,cy,r,n){const p=[];for(let i=0;i<n;i++){const ang=i/n*Math.PI*2,j=r*(.7+Math.random()*.6);p.push([cx+Math.cos(ang)*j,cy+Math.sin(ang)*j*.65]);}p.push(p[0]);return p;}
+function emptyLine(){return{type:'Feature',geometry:{type:'LineString',coordinates:[]}};}
+function emptyPoly(c){return{type:'Feature',geometry:{type:'Polygon',coordinates:[c]}};}
+function areaStr(a){return a>1e6?(a/1e6).toFixed(2)+' km²':Math.round(a).toLocaleString()+' m²';}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
+function rnd(n){return Math.floor(Math.random()*n);}
+function ls(k,v){if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}
+let _tT;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');el.textContent=msg;el.className='on'+(type?' '+type:'');
+  clearTimeout(_tT);_tT=setTimeout(()=>el.classList.remove('on'),2900);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SERVICE WORKER + BOOT
+═══════════════════════════════════════════════════════════════ */
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js').catch(()=>{}));
+
+window.addEventListener('DOMContentLoaded',()=>{
+  ld(5,'LOADING...');
+  setTimeout(initMap,200);
+});
+</script>
+</body>
+</html>

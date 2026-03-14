@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>Web GTA Map</title>
-
-<link rel="manifest" href="manifest.json">
+<title>Open World Map Game</title>
 
 <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
 
@@ -25,7 +24,7 @@ height:100vh;
 
 /* HUD */
 
-#hud{
+#searchBox{
 position:absolute;
 top:15px;
 left:50%;
@@ -33,36 +32,37 @@ transform:translateX(-50%);
 z-index:5;
 }
 
-#hud input{
+#searchBox input{
 padding:10px;
 border-radius:8px;
 border:none;
-width:250px;
+width:260px;
+font-size:15px;
 }
 
 /* buttons */
 
-#gps,#fullscreen,#install{
+button{
 position:absolute;
 right:15px;
-z-index:10;
-padding:10px;
+padding:10px 14px;
 border:none;
 border-radius:8px;
 background:black;
 color:white;
+z-index:5;
 }
 
-#gps{ top:15px }
-#fullscreen{ top:65px }
-#install{ top:115px }
+#gps{top:15px;}
+#sat{top:65px;}
+#fullscreen{top:115px;}
 
 /* player */
 
 .player{
 width:22px;
 height:22px;
-background:red;
+background:#ff3b3b;
 border-radius:50%;
 border:3px solid white;
 }
@@ -95,13 +95,13 @@ left:40px;
 
 <body>
 
-<div id="hud">
-<input id="search" placeholder="Search location">
+<div id="searchBox">
+<input id="search" placeholder="Search location...">
 </div>
 
 <button id="gps">GPS</button>
+<button id="sat">Satellite</button>
 <button id="fullscreen">Fullscreen</button>
-<button id="install">Install</button>
 
 <div id="map"></div>
 
@@ -113,11 +113,18 @@ left:40px;
 
 <script>
 
+const API_KEY="SnLVij6NhHPG0XBBao4k";
+
+let streetStyle=`https://api.maptiler.com/maps/streets/style.json?key=${API_KEY}`;
+let satelliteStyle=`https://api.maptiler.com/maps/satellite/style.json?key=${API_KEY}`;
+
+let currentStyle=streetStyle;
+
 /* MAP */
 
 const map=new maplibregl.Map({
 container:'map',
-style:'https://demotiles.maplibre.org/style.json',
+style:streetStyle,
 center:[78.96,22.59],
 zoom:5,
 pitch:60,
@@ -139,11 +146,17 @@ const player=new maplibregl.Marker(el)
 .addTo(map);
 
 function updatePlayer(){
+
 player.setLngLat(playerPos);
-map.setCenter(playerPos);
+
+map.easeTo({
+center:playerPos,
+duration:0
+});
+
 }
 
-/* WASD */
+/* KEYBOARD MOVEMENT */
 
 document.addEventListener("keydown",(e)=>{
 
@@ -214,7 +227,10 @@ if(data.length){
 
 playerPos=[parseFloat(data[0].lon),parseFloat(data[0].lat)];
 
-map.flyTo({center:playerPos,zoom:16});
+map.flyTo({
+center:playerPos,
+zoom:16
+});
 
 updatePlayer();
 
@@ -232,11 +248,26 @@ navigator.geolocation.getCurrentPosition(pos=>{
 
 playerPos=[pos.coords.longitude,pos.coords.latitude];
 
-map.flyTo({center:playerPos,zoom:16});
+map.flyTo({
+center:playerPos,
+zoom:16
+});
 
 updatePlayer();
 
 });
+
+};
+
+/* SATELLITE TOGGLE */
+
+let sat=false;
+
+document.getElementById("sat").onclick=()=>{
+
+sat=!sat;
+
+map.setStyle(sat ? satelliteStyle : streetStyle);
 
 };
 
@@ -245,44 +276,16 @@ updatePlayer();
 document.getElementById("fullscreen").onclick=()=>{
 
 if(!document.fullscreenElement){
+
 document.documentElement.requestFullscreen();
+
 }else{
+
 document.exitFullscreen();
-}
-
-};
-
-/* INSTALL PWA */
-
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt',(e)=>{
-
-e.preventDefault();
-deferredPrompt=e;
-
-});
-
-document.getElementById("install").onclick=()=>{
-
-if(deferredPrompt){
-
-deferredPrompt.prompt();
-deferredPrompt.userChoice.then(()=>{
-
-deferredPrompt=null;
-
-});
 
 }
 
 };
-
-/* SERVICE WORKER */
-
-if('serviceWorker' in navigator){
-navigator.serviceWorker.register("sw.js");
-}
 
 </script>
 

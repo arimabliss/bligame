@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>CAMPUS LIFE — Main Menu</title>
+  <link rel="stylesheet" href="Overall.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body data-page="menu">
+
+  <div id="menu-bg">
+    <canvas id="menu-canvas"></canvas>
+    <div class="menu-vignette"></div>
+    <div class="menu-grain"></div>
+  </div>
+
+  <div id="menu-ui">
+    <header class="menu-header">
+      <div class="logo">CAMPUS<span>LIFE</span></div>
+      <p class="tagline">An open-world college life simulation</p>
+      <p class="sub-tagline">Study. Socialise. Survive. Become someone.</p>
+    </header>
+
+    <nav class="menu-actions">
+      <button id="btn-new" class="menu-btn primary">
+        <span class="menu-btn-icon">✦</span>
+        <span><strong>New Game</strong><small>Create a student and choose a college</small></span>
+      </button>
+      <button id="btn-continue" class="menu-btn">
+        <span class="menu-btn-icon">▶</span>
+        <span><strong>Continue</strong><small>Load the latest saved campus</small></span>
+      </button>
+      <button id="btn-load" class="menu-btn">
+        <span class="menu-btn-icon">◫</span>
+        <span><strong>Load Game</strong><small>Choose a save slot</small></span>
+      </button>
+      <button id="btn-gallery" class="menu-btn">
+        <span class="menu-btn-icon">◉</span>
+        <span><strong>Character Gallery</strong><small>Review created students</small></span>
+      </button>
+      <button id="btn-settings" class="menu-btn">
+        <span class="menu-btn-icon">⚙</span>
+        <span><strong>Settings</strong><small>Graphics, AI proxy and model</small></span>
+      </button>
+      <button id="btn-credits" class="menu-btn">
+        <span class="menu-btn-icon">ⓘ</span>
+        <span><strong>Credits</strong><small>Assets, libraries and licences</small></span>
+      </button>
+    </nav>
+
+    <footer class="menu-footer">
+      <span id="menu-status">Campus simulation ready</span>
+      <span class="menu-footer-right">Desktop + mobile · Three.js · IndexedDB</span>
+    </footer>
+  </div>
+
+  <!-- ================= CHARACTER CREATOR ================= -->
+  <section id="panel-creator" class="panel hidden" aria-label="Character Creator">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">STEP 1 OF 2</p>
+        <h2>Create your student</h2>
+        <p class="muted">Every detail affects how NPCs perceive you.</p>
+      </div>
+      <button class="panel-close" data-close="creator">✕</button>
+    </div>
+
+    <div class="creator-layout">
+      <div class="creator-preview-wrap">
+        <canvas id="preview-canvas"></canvas>
+        <div class="preview-hint">Drag to rotate · Scroll to zoom</div>
+        <div class="preview-badge" id="preview-badge">LIVE 3D</div>
+      </div>
+
+      <div class="creator-form">
+        <div class="form-section">
+          <h3>Personal information</h3>
+          <div class="grid-2">
+            <label>First name<input id="c-first" value="Alex" maxlength="20" /></label>
+            <label>Last name<input id="c-last" value="Morgan" maxlength="20" /></label>
+            <label>Nickname<input id="c-nickname" value="Lex" maxlength="20" /></label>
+            <label>Age<input id="c-age" type="number" min="17" max="60" value="18" /></label>
+            <label>Gender
+              <select id="c-gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="nonbinary">Non-binary</option>
+                <option value="prefer-not">Prefer not to say</option>
+              </select>
+            </label>
+            <label>Pronouns
+              <select id="c-pronouns">
+                <option value="he/him">he/him</option>
+                <option value="she/her">she/her</option>
+                <option value="they/them">they/them</option>
+              </select>
+            </label>
+            <label>Country<input id="c-country" value="India" maxlength="40" /></label>
+            <label>Hometown<input id="c-hometown" value="Pune" maxlength="40" /></label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Appearance</h3>
+          <div class="grid-2">
+            <label>Character base
+              <select id="c-base">
+                <option value="male">Male base</option>
+                <option value="female">Female base</option>
+              </select>
+            </label>
+            <label>Hairstyle
+              <select id="c-hair">
+                <option value="short">Short</option>
+                <option value="long">Long</option>
+                <option value="bun">Bun</option>
+                <option value="mohawk">Mohawk</option>
+                <option value="curly">Curly</option>
+              </select>
+            </label>
+            <label>Hair colour<input id="c-haircolor" type="color" value="#2b1d14" /></label>
+            <label>Skin tone
+              <select id="c-skin">
+                <option value="#f1c7a5">Fair</option>
+                <option value="#d9a06b">Warm</option>
+                <option value="#b57445">Tan</option>
+                <option value="#7a4a2a">Deep</option>
+                <option value="#4a2c1a">Rich</option>
+              </select>
+            </label>
+            <label>Eye colour
+              <select id="c-eyes">
+                <option value="#3b2a1a">Brown</option>
+                <option value="#2f5d8a">Blue</option>
+                <option value="#3e6b3a">Green</option>
+                <option value="#6b5a3a">Hazel</option>
+              </select>
+            </label>
+            <label>Height <input id="c-height" type="range" min="0.85" max="1.15" step="0.01" value="1" /></label>
+            <label>Build <input id="c-build" type="range" min="0.8" max="1.2" step="0.01" value="1" /></label>
+            <label>Clothing colour<input id="c-cloth" type="color" value="#3b6ea8" /></label>
+            <label>Shoe colour<input id="c-shoes" type="color" value="#20242c" /></label>
+            <label>Accessory
+              <select id="c-accessory">
+                <option value="none">None</option>
+                <option value="glasses">Glasses</option>
+                <option value="cap">Cap</option>
+                <option value="backpack">Backpack</option>
+                <option value="watch">Watch</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Personality</h3>
+          <div id="personality-chips" class="chip-grid">
+            <button type="button" class="chip" data-p="introverted">Introverted</button>
+            <button type="button" class="chip" data-p="extroverted">Extroverted</button>
+            <button type="button" class="chip" data-p="confident">Confident</button>
+            <button type="button" class="chip" data-p="shy">Shy</button>
+            <button type="button" class="chip" data-p="funny">Funny</button>
+            <button type="button" class="chip" data-p="sarcastic">Sarcastic</button>
+            <button type="button" class="chip" data-p="intelligent">Intelligent</button>
+            <button type="button" class="chip" data-p="ambitious">Ambitious</button>
+            <button type="button" class="chip" data-p="rebellious">Rebellious</button>
+            <button type="button" class="chip" data-p="friendly">Friendly</button>
+            <button type="button" class="chip" data-p="competitive">Competitive</button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Background</h3>
+          <div class="grid-2">
+            <label>Family wealth
+              <select id="c-wealth">
+                <option value="struggling">Struggling</option>
+                <option value="middle">Middle class</option>
+                <option value="comfortable" selected>Comfortable</option>
+                <option value="wealthy">Wealthy</option>
+              </select>
+            </label>
+            <label>Family occupation<input id="c-familyjob" value="Teacher" maxlength="40" /></label>
+            <label>Previous education<input id="c-prevedu" value="Public high school" maxlength="60" /></label>
+            <label>Financial situation
+              <select id="c-finance">
+                <option value="scholarship">Scholarship</option>
+                <option value="loan">Student loan</option>
+                <option value="savings">Savings</option>
+                <option value="family">Family support</option>
+              </select>
+            </label>
+          </div>
+          <label class="full">Personal history
+            <textarea id="c-history" rows="3" maxlength="400">A curious student looking for a fresh start.</textarea>
+          </label>
+          <label class="full">Academic interests
+            <input id="c-interests" value="Computer science, psychology" maxlength="120" />
+          </label>
+        </div>
+
+        <div class="creator-actions">
+          <button id="btn-randomize" class="btn ghost">Randomise</button>
+          <button id="btn-creator-next" class="btn primary">Next: Choose College</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= COLLEGE SELECTION ================= -->
+  <section id="panel-college" class="panel hidden" aria-label="College Selection">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">STEP 2 OF 2</p>
+        <h2>Choose your college</h2>
+        <p class="muted">The campus, courses, professors and culture are generated from this choice.</p>
+      </div>
+      <button class="panel-close" data-close="college">✕</button>
+    </div>
+
+    <div class="college-layout">
+      <div class="college-form">
+        <div class="grid-2">
+          <label>College type
+            <select id="col-type">
+              <option value="university">University</option>
+              <option value="engineering">Engineering college</option>
+              <option value="medical">Medical college</option>
+              <option value="law">Law college</option>
+              <option value="business">Business college</option>
+              <option value="arts">Arts college</option>
+              <option value="private">Private institution</option>
+              <option value="government">Government institution</option>
+            </select>
+          </label>
+          <label>College name<input id="col-name" value="Northgate University" maxlength="60" /></label>
+          <label>Country<input id="col-country" value="India" maxlength="40" /></label>
+          <label>City<input id="col-city" value="Pune" maxlength="40" /></label>
+          <label>Academic reputation
+            <select id="col-reputation">
+              <option value="elite">Elite</option>
+              <option value="high" selected>High</option>
+              <option value="mid">Mid-tier</option>
+              <option value="emerging">Emerging</option>
+            </select>
+          </label>
+          <label>Campus size
+            <select id="col-size">
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </label>
+          <label>Student population<input id="col-population" type="number" value="8000" min="500" max="80000" /></label>
+          <label>Tuition fees (per year)<input id="col-tuition" type="number" value="120000" min="0" max="5000000" /></label>
+          <label>Hostel facilities
+            <select id="col-hostel">
+              <option value="shared">Shared rooms</option>
+              <option value="single" selected>Single rooms</option>
+              <option value="apartment">Apartment style</option>
+              <option value="none">No hostel</option>
+            </select>
+          </label>
+          <label>Academic difficulty
+            <select id="col-difficulty">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+              <option value="brutal">Brutal</option>
+            </select>
+          </label>
+          <label>College culture
+            <select id="col-culture">
+              <option value="competitive">Competitive</option>
+              <option value="collaborative" selected>Collaborative</option>
+              <option value="creative">Creative</option>
+              <option value="sports">Sports-focused</option>
+              <option value="party">Social / party</option>
+            </select>
+          </label>
+        </div>
+        <label class="full">Custom description
+          <textarea id="col-description" rows="3" maxlength="500">A modern campus with strong engineering and arts programmes, known for its lively courtyard and late-night library culture.</textarea>
+        </label>
+        <div class="creator-actions">
+          <button id="btn-college-back" class="btn ghost">Back</button>
+          <button id="btn-college-generate" class="btn ghost">Generate Campus Preview</button>
+          <button id="btn-start-game" class="btn primary">Start Campus Life</button>
+        </div>
+      </div>
+      <div id="college-preview" class="college-preview">
+        <div class="college-preview-placeholder">
+          <span class="big-icon">🏛️</span>
+          <p>Your campus will be generated here.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SAVES ================= -->
+  <section id="panel-saves" class="panel hidden" aria-label="Save Games">
+    <div class="panel-head">
+      <div><p class="eyebrow">PERSISTENT WORLD</p><h2>Load Game</h2></div>
+      <button class="panel-close" data-close="saves">✕</button>
+    </div>
+    <div id="save-list" class="save-list"></div>
+    <p class="muted center">Saves are stored in IndexedDB and include NPC memories and relationships.</p>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section id="panel-settings" class="panel hidden" aria-label="Settings">
+    <div class="panel-head">
+      <div><p class="eyebrow">SYSTEM</p><h2>Settings</h2></div>
+      <button class="panel-close" data-close="settings">✕</button>
+    </div>
+    <div class="settings-grid">
+      <label>Graphics preset
+        <select id="set-quality">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+      <label>Shadows
+        <select id="set-shadows">
+          <option value="off">Off</option>
+          <option value="on" selected>On</option>
+        </select>
+      </label>
+      <label>AI proxy endpoint
+        <input id="set-proxy" value="/api/chat" />
+      </label>
+      <label>OpenRouter model
+        <input id="set-model" value="google/gemma-4-26b-a4b-it:free" />
+      </label>
+      <label>Autosave
+        <select id="set-autosave"><option value="on" selected>On</option><option value="off">Off</option></select>
+      </label>
+    </div>
+    <div class="creator-actions"><button id="btn-settings-save" class="btn primary">Save Settings</button></div>
+  </section>
+
+  <!-- ================= CREDITS ================= -->
+  <section id="panel-credits" class="panel hidden" aria-label="Credits">
+    <div class="panel-head">
+      <div><p class="eyebrow">THANK YOU</p><h2>Credits & licences</h2></div>
+      <button class="panel-close" data-close="credits">✕</button>
+    </div>
+    <div class="credits-body">
+      <h3>3D assets</h3>
+      <ul>
+        <li><strong>Kenney</strong> — City Kit, Car Kit, Furniture Kit, Nature Kit. CC0 1.0. <code>kenney.nl</code></li>
+        <li><strong>Quaternius</strong> — character and animation packs referenced through the asset manifest. CC0 / CC-BY where applicable. <code>quaternius.com</code></li>
+        <li><strong>Three.js examples</strong> — Soldier, Xbot, RobotExpressive. MIT-licensed example assets. <code>threejs.org</code></li>
+      </ul>
+      <h3>Libraries</h3>
+      <ul>
+        <li>Three.js r187 — MIT</li>
+        <li>GLTFLoader, PointerLockControls, SkeletonUtils — Three.js addons</li>
+      </ul>
+      <h3>AI</h3>
+      <ul>
+        <li>OpenRouter Chat Completions API. The API key is held only by the proxy server.</li>
+        <li>Default model: <code>google/gemma-4-26b-a4b-it:free</code></li>
+      </ul>
+      <p class="muted">Asset URLs may be updated in <code>Overall.js → ASSETS</code>. The game falls back to stylised procedural geometry only if a remote asset cannot be fetched, and logs a visible warning.</p>
+    </div>
+  </section>
+
+  <!-- ================= GALLERY ================= -->
+  <section id="panel-gallery" class="panel hidden" aria-label="Character Gallery">
+    <div class="panel-head">
+      <div><p class="eyebrow">YOUR STUDENTS</p><h2>Character Gallery</h2></div>
+      <button class="panel-close" data-close="gallery">✕</button>
+    </div>
+    <div id="gallery-list" class="gallery-list"></div>
+  </section>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="Overall.js"></script>
+</body>
+</html>

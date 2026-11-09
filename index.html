@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>CAMPUS LIFE — Campus</title>
+  <link rel="stylesheet" href="Overall.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body data-page="game">
+
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <!-- ================= LOADING ================= -->
+  <div id="loading-screen">
+    <div class="loading-inner">
+      <div class="logo small">CAMPUS<span>LIFE</span></div>
+      <div class="loading-bar"><div id="loading-fill"></div></div>
+      <p id="loading-text">Preparing campus…</p>
+      <small>Loading buildings, characters, vehicles and memories.</small>
+    </div>
+  </div>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud">
+    <div id="topbar">
+      <div class="topbar-group">
+        <span id="hud-time">08:00</span>
+        <span id="hud-date">Mon · Day 1 · Semester 1</span>
+      </div>
+      <div class="topbar-group center">
+        <span id="hud-location">Main Courtyard</span>
+        <span id="hud-weather">Clear · 24°C</span>
+      </div>
+      <div class="topbar-group right">
+        <span id="hud-money">₹2,500</span>
+        <button id="hud-phone" class="hud-icon-btn" title="Phone">📱</button>
+        <button id="hud-pause" class="hud-icon-btn" title="Pause">❚❚</button>
+      </div>
+    </div>
+
+    <div id="stats-panel">
+      <div class="stat-row"><span>Health</span><div class="stat-bar"><i id="stat-health"></i></div></div>
+      <div class="stat-row"><span>Energy</span><div class="stat-bar"><i id="stat-energy"></i></div></div>
+      <div class="stat-row"><span>Hunger</span><div class="stat-bar"><i id="stat-hunger"></i></div></div>
+      <div class="stat-row"><span>Hygiene</span><div class="stat-bar"><i id="stat-hygiene"></i></div></div>
+      <div class="stat-row"><span>Happiness</span><div class="stat-bar"><i id="stat-happiness"></i></div></div>
+      <div class="stat-row"><span>Stress</span><div class="stat-bar"><i id="stat-stress"></i></div></div>
+      <div class="stat-row"><span>Confidence</span><div class="stat-bar"><i id="stat-confidence"></i></div></div>
+      <div class="stat-row"><span>Intelligence</span><div class="stat-bar"><i id="stat-intelligence"></i></div></div>
+      <div class="stat-row"><span>Fitness</span><div class="stat-bar"><i id="stat-fitness"></i></div></div>
+      <div class="stat-row"><span>Charisma</span><div class="stat-bar"><i id="stat-charisma"></i></div></div>
+    </div>
+
+    <div id="objective-box">
+      <span class="eyebrow">CURRENT OBJECTIVE</span>
+      <p id="objective-text">Attend your first lecture in the Academic Block.</p>
+      <div id="objective-progress"><i></i></div>
+    </div>
+
+    <canvas id="minimap" width="190" height="190"></canvas>
+    <div id="minimap-label">CAMPUS MAP</div>
+
+    <div id="interaction-prompt" class="hidden">
+      <kbd>E</kbd><span id="interaction-text">Interact</span>
+    </div>
+
+    <div id="notification" class="hidden"></div>
+
+    <!-- MOBILE CONTROLS -->
+    <div id="mobile-controls">
+      <div id="joystick-zone">
+        <div id="joystick-base"><div id="joystick-knob"></div></div>
+      </div>
+      <div class="mobile-buttons">
+        <button data-action="jump" class="m-btn">JUMP</button>
+        <button data-action="sprint" class="m-btn">SPRINT</button>
+        <button data-action="crouch" class="m-btn">CROUCH</button>
+        <button data-action="interact" class="m-btn wide">E</button>
+        <button data-action="vehicle" class="m-btn wide">F</button>
+        <button data-action="camera" class="m-btn">CAM</button>
+        <button data-action="phone" class="m-btn">📱</button>
+        <button data-action="map" class="m-btn">MAP</button>
+      </div>
+    </div>
+
+    <!-- DIALOGUE -->
+    <div id="dialogue-panel" class="hidden">
+      <div class="dialogue-head">
+        <div class="dialogue-avatar" id="dialogue-avatar">?</div>
+        <div>
+          <h3 id="dialogue-name">NPC</h3>
+          <p id="dialogue-role">Student</p>
+        </div>
+        <div class="dialogue-rel" id="dialogue-rel">Friendship 0</div>
+        <button id="dialogue-close" class="panel-close small">✕</button>
+      </div>
+      <div class="dialogue-body">
+        <p id="dialogue-text">…</p>
+        <div id="dialogue-choices" class="dialogue-choices"></div>
+        <div class="dialogue-input-row">
+          <input id="dialogue-input" placeholder="Say or do anything…" maxlength="400" />
+          <button id="dialogue-send" class="btn primary small">Send</button>
+        </div>
+        <p class="dialogue-hint">The NPC reacts according to personality, relationship, memory and campus rules.</p>
+      </div>
+    </div>
+
+    <!-- PHONE -->
+    <div id="phone-panel" class="hidden">
+      <div class="phone-shell">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-status"><span id="phone-time">08:00</span><span>5G ▮▮▮</span></div>
+          <div class="phone-app" id="phone-app"></div>
+          <nav class="phone-nav">
+            <button data-phone="contacts">Contacts</button>
+            <button data-phone="messages">Messages</button>
+            <button data-phone="social">Social</button>
+            <button data-phone="calendar">Calendar</button>
+            <button data-phone="notes">Notes</button>
+            <button data-phone="bank">Bank</button>
+            <button data-phone="map">Map</button>
+          </nav>
+        </div>
+      </div>
+      <button id="phone-close" class="panel-close phone-close">✕</button>
+    </div>
+
+    <!-- INVENTORY -->
+    <div id="inventory-panel" class="side-panel hidden">
+      <div class="panel-head compact">
+        <h2>Inventory</h2><button class="panel-close" data-close="inventory">✕</button>
+      </div>
+      <div id="inventory-list"></div>
+    </div>
+
+    <!-- RELATIONSHIPS -->
+    <div id="relationship-panel" class="side-panel hidden">
+      <div class="panel-head compact">
+        <h2>Relationships</h2><button class="panel-close" data-close="relationships">✕</button>
+      </div>
+      <div id="relationship-list"></div>
+    </div>
+
+    <!-- PAUSE -->
+    <div id="pause-menu" class="hidden">
+      <div class="pause-card">
+        <div class="logo small">CAMPUS<span>LIFE</span></div>
+        <h2>Paused</h2>
+        <button id="pause-resume" class="btn primary">Resume</button>
+        <button id="pause-save" class="btn">Save Game</button>
+        <button id="pause-load" class="btn">Load Game</button>
+        <button id="pause-settings" class="btn">Settings</button>
+        <button id="pause-quit" class="btn danger">Quit to Menu</button>
+      </div>
+    </div>
+
+    <div id="mobile-look-hint" class="hidden">Swipe right side to look</div>
+  </div>
+
+  <script type="module" src="Overall.js"></script>
+</body>
+</html>
